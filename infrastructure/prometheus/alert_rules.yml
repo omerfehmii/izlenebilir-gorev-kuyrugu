@@ -1,0 +1,173 @@
+groups:
+- name: task_queue_alerts
+  rules:
+  # High error rate alerts
+  - alert: HighTaskErrorRate
+    expr: rate(consumer_task_errors_total[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: warning
+      service: task-queue
+    annotations:
+      summary: "High task error rate detected"
+      description: "Task error rate is {{ $value }} errors per second for service {{ $labels.service }}"
+
+  - alert: CriticalTaskErrorRate
+    expr: rate(consumer_task_errors_total[5m]) > 0.5
+    for: 1m
+    labels:
+      severity: critical
+      service: task-queue
+    annotations:
+      summary: "Critical task error rate detected"
+      description: "Task error rate is {{ $value }} errors per second for service {{ $labels.service }}"
+
+  # Dead Letter Queue alerts
+  - alert: DeadLetterQueueGrowing
+    expr: rate(consumer_dead_letter_queue_total[5m]) > 0.05
+    for: 5m
+    labels:
+      severity: warning
+      service: task-queue
+    annotations:
+      summary: "Dead Letter Queue is growing"
+      description: "DLQ rate is {{ $value }} messages per second for task type {{ $labels.task_type }}"
+
+  - alert: CriticalDeadLetterQueueRate
+    expr: rate(consumer_dead_letter_queue_total[5m]) > 0.2
+    for: 2m
+    labels:
+      severity: critical
+      service: task-queue
+    annotations:
+      summary: "Critical Dead Letter Queue rate"
+      description: "DLQ rate is {{ $value }} messages per second for task type {{ $labels.task_type }}"
+
+  # Task processing time alerts
+  - alert: SlowTaskProcessing
+    expr: histogram_quantile(0.95, rate(consumer_task_processing_duration_seconds_bucket[5m])) > 30
+    for: 5m
+    labels:
+      severity: warning
+      service: task-queue
+    annotations:
+      summary: "Slow task processing detected"
+      description: "95th percentile task processing time is {{ $value }}s for task type {{ $labels.task_type }}"
+
+  - alert: VerySlowTaskProcessing
+    expr: histogram_quantile(0.95, rate(consumer_task_processing_duration_seconds_bucket[5m])) > 60
+    for: 2m
+    labels:
+      severity: critical
+      service: task-queue
+    annotations:
+      summary: "Very slow task processing detected"
+      description: "95th percentile task processing time is {{ $value }}s for task type {{ $labels.task_type }}"
+
+  # High retry rate alerts
+  - alert: HighRetryRate
+    expr: rate(consumer_task_retries_total[5m]) > 0.2
+    for: 3m
+    labels:
+      severity: warning
+      service: task-queue
+    annotations:
+      summary: "High task retry rate"
+      description: "Task retry rate is {{ $value }} retries per second for task type {{ $labels.task_type }}"
+
+  # Queue wait time alerts
+  - alert: HighQueueWaitTime
+    expr: consumer_queue_wait_time_seconds > 300
+    for: 5m
+    labels:
+      severity: warning
+      service: task-queue
+    annotations:
+      summary: "High queue wait time"
+      description: "Queue wait time is {{ $value }}s for queue {{ $labels.queue_name }}"
+
+  - alert: CriticalQueueWaitTime
+    expr: consumer_queue_wait_time_seconds > 600
+    for: 2m
+    labels:
+      severity: critical
+      service: task-queue
+    annotations:
+      summary: "Critical queue wait time"
+      description: "Queue wait time is {{ $value }}s for queue {{ $labels.queue_name }}"
+
+  # Service availability alerts
+  - alert: ProducerDown
+    expr: up{job="producer"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      service: producer
+    annotations:
+      summary: "Producer service is down"
+      description: "Producer service has been down for more than 1 minute"
+
+  - alert: ConsumerDown
+    expr: up{job="consumer"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      service: consumer
+    annotations:
+      summary: "Consumer service is down"
+      description: "Consumer service has been down for more than 1 minute"
+
+  # Task processing capacity alerts
+  - alert: HighActiveTasks
+    expr: sum(consumer_active_tasks) by (task_type) > 10
+    for: 5m
+    labels:
+      severity: warning
+      service: task-queue
+    annotations:
+      summary: "High number of active tasks"
+      description: "{{ $value }} active tasks for task type {{ $labels.task_type }}"
+
+  - alert: NoTaskProcessing
+    expr: rate(consumer_tasks_processed_total{status="success"}[10m]) == 0
+    for: 10m
+    labels:
+      severity: warning
+      service: task-queue
+    annotations:
+      summary: "No tasks being processed successfully"
+      description: "No successful task processing in the last 10 minutes"
+
+- name: infrastructure_alerts
+  rules:
+  # RabbitMQ alerts (if monitoring is available)
+  - alert: RabbitMQDown
+    expr: up{job="rabbitmq"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      service: rabbitmq
+    annotations:
+      summary: "RabbitMQ is down"
+      description: "RabbitMQ has been down for more than 1 minute"
+
+  # General resource alerts
+  - alert: HighCPUUsage
+    expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+      service: task-queue
+    annotations:
+      summary: "High CPU usage"
+      description: "CPU usage is {{ $value }}% for service {{ $labels.job }}"
+
+  - alert: HighMemoryUsage
+    expr: process_resident_memory_bytes / 1024 / 1024 > 500
+    for: 5m
+    labels:
+      severity: warning
+      service: task-queue
+    annotations:
+      summary: "High memory usage"
+      description: "Memory usage is {{ $value }}MB for service {{ $labels.job }}" 

@@ -1,0 +1,359 @@
+{
+  "id": null,
+  "uid": "simple-task-queue",
+  "title": "📊 Simple Task Queue Dashboard",
+  "tags": ["task-queue", "simple", "monitoring"],
+  "style": "dark",
+  "timezone": "browser",
+  "refresh": "10s",
+  "schemaVersion": 27,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["10s", "30s", "1m", "5m"],
+    "time_options": ["15m", "30m", "1h", "3h", "6h", "12h", "24h"]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Task Statistics - Overview",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(increase(producer_tasks_sent_total[1h]))",
+          "legendFormat": "Tasks Sent",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(consumer_tasks_processed_total{status=\"success\"}[1h]))",
+          "legendFormat": "Successfully Processed",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(increase(consumer_tasks_processed_total{status=\"failed\"}[1h]))",
+          "legendFormat": "Failed Tasks",
+          "refId": "C"
+        },
+        {
+          "expr": "sum(consumer_active_tasks)",
+          "legendFormat": "Currently Processing",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 10},
+              {"color": "red", "value": 50}
+            ]
+          },
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Failed Tasks"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Successfully Processed"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "title": "Task Processing Rate (Tasks/minute)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(producer_tasks_sent_total[1m]) * 60",
+          "legendFormat": "Sent Rate",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(consumer_tasks_processed_total{status=\"success\"}[1m]) * 60",
+          "legendFormat": "Success Rate",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(consumer_tasks_processed_total{status=\"failed\"}[1m]) * 60",
+          "legendFormat": "Error Rate",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "stacking": {"mode": "none"}
+          },
+          "color": {"mode": "palette-classic"},
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Error Rate"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Success Rate"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": {"mode": "multi", "sort": "desc"},
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+    },
+    {
+      "id": 3,
+      "title": "Average Processing Time",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "rate(consumer_task_processing_duration_seconds_sum[5m]) / rate(consumer_task_processing_duration_seconds_count[5m])",
+          "legendFormat": "Average Processing Time",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 5},
+              {"color": "red", "value": 10}
+            ]
+          },
+          "unit": "s",
+          "decimals": 2
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center"
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 16}
+    },
+    {
+      "id": 4,
+      "title": "Success Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "rate(consumer_tasks_processed_total{status=\"success\"}[5m]) / (rate(consumer_tasks_processed_total{status=\"success\"}[5m]) + rate(consumer_tasks_processed_total{status=\"failed\"}[5m])) * 100",
+          "legendFormat": "Success Rate",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 80},
+              {"color": "green", "value": 90}
+            ]
+          },
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center"
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 16}
+    },
+    {
+      "id": 5,
+      "title": "Queue Health",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(consumer_active_tasks)",
+          "legendFormat": "Active Tasks",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 5},
+              {"color": "red", "value": 10}
+            ]
+          },
+          "unit": "short",
+          "decimals": 0
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center"
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 16}
+    },
+    {
+      "id": 6,
+      "title": "Task Distribution by Type",
+      "type": "piechart",
+      "targets": [
+        {
+          "expr": "sum(increase(consumer_tasks_processed_total{status=\"success\"}[1h])) by (task_type)",
+          "legendFormat": "{{task_type}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "short",
+          "decimals": 0
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "pieType": "pie",
+        "tooltip": {"mode": "single", "sort": "none"},
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": ["value", "percent"]
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+    },
+    {
+      "id": 7,
+      "title": "System Health",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "up{job=\"producer\"}",
+          "legendFormat": "Producer Status",
+          "refId": "A"
+        },
+        {
+          "expr": "up{job=\"consumer\"}",
+          "legendFormat": "Consumer Status",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 3,
+            "fillOpacity": 50,
+            "showPoints": "always",
+            "pointSize": 8
+          },
+          "color": {"mode": "palette-classic"},
+          "unit": "short",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Producer Status"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Consumer Status"},
+            "properties": [
+              {"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": {"mode": "multi", "sort": "none"},
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "icon": "external link",
+      "tags": ["producer"],
+      "title": "Producer Web UI",
+      "tooltip": "Open Producer Web Interface",
+      "type": "link",
+      "url": "http://localhost:8080"
+    },
+    {
+      "icon": "external link",
+      "tags": ["rabbitmq"],
+      "title": "RabbitMQ Management",
+      "tooltip": "Open RabbitMQ Management Console",
+      "type": "link",
+      "url": "http://localhost:15672"
+    }
+  ]
+} 

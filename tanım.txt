@@ -1,0 +1,105 @@
+izlenebilir Görev Kuyrugu
+
+RabbitMQ mesaj kuyrugunu kullanarak asenkron görev isleme sistemini kurmak ve bu sistemin akisini, performansini OpenTelemetry ile izleyerek gözlemlenebilirligini saglamak.
+
+Örnek: Bir "Rapor Olustur" istegi kuyruga atilir, arka planda islenir ve bu islemin ne kadar sürdugu, hangi adimlardan gectigi izlenir.
+
+Teknolojiler:
+
+Teknoloji
+
+Amaç
+
+.NET Core (C#)
+
+Producer (Görev gönderen) ve Consumer (Görev isleyen) uygulamalari
+
+RabbitMQ
+
+Görev mesajlarini iletmek icin mesaj kuyrugu
+
+OpenTelemetry SDK (.NET)
+
+Uygulamalari izlenebilirlik için enstrümante etmek
+
+OpenTelemetry
+
+Collector
+
+Trace ve metrik verilerini toplamak ve yonlendirmek
+
+Jaeger
+
+Dagitik izleme (distributed tracing) verilerini görsellestirmek
+
+Prometheus
+
+Metrik verilerini toplamak ve depolamak
+
+Grafana
+
+Prometheus'tan metrikleri cekerek dashboard olusturmak
+
+Docker / Docker
+
+Compose
+
+Tüm bilesenleri (RabbitMQ, Jaeger, Prometheus, Grafana, OTel Collector) kolayca kurmak ve yönetmek
+
+
+
+Uygulama Yapisi
+
+Producer Uygulamasi: Görev mesajlari olusturan ve RabbitMQ'ya gönderen basit bir konsol uygulamasi veya Web API endpoint'i.
+
+Consumer Uygulamasi: RabbitMQ'dan görev mesajlanni alan ve isleyen (simüle edilmis bir islem yapan) bir konsol uygulamasi veya Worker servisi.
+
+izleme Altyapisi: Docker üzerinde çaliçan RabbitMQ, OpenTelemetry Collector, Jaeger, Prometheus ve Gratana.
+
+Arayüzler: Jaeger Ul (Trace'leri görmek için), Grafana Ul (Metrikleri görmek için).
+
+
+
+Teslimat ve Çiktilar
+
+Proje sonunda asagidaki adimlar tamamlanmis ve giktilar teslim edilmis olacaktir:
+
+Docker Ortamt Kurulumu: RabbitMQ, OpenTelemetry Collector, Jaeger, Prometheus ve Grafana için temel Docker Compose ortami kurulmus ve çalisir durumda
+
+Temel Producer ve Consumer Uygulamalari: RabbitMQ baglantisi kurulmus temel .NET Core Konsol veya Worker uygulamalani (Producer ve Consumer) olusturulmus.
+
+Temel Mesaj Akisi: Producer'dan RabbitMQ'ya mesaj gönderme ve Consumer'in bu mesaji alip isleme (simüle edilmis) akisi çalisir durumda.
+
+OpenTelemetry Enstrümantasyonu: Hem Producer hem de Consumer uygulamalari OpenTelemetry
+
+SDK ile enstrümante edilmis, temel manuel trace'ler eklenmis.
+
+Context Propagation: RabbitMQ mesajlari üzerinden OpenTelemetry trace context'inin Producer'dan Consumer'a aktarilmasi (context propagation) saglanmis.
+
+Trace Görsellestirme: Uygulamalardan gönderilen trace verileri OpenTelemetry Collector üzerinden
+
+Jaeger'a iletilmis ve Jaeger Ul'da uçtan uca trace ler görüntülenebilir durumda.
+
+
+
+Metrik Toplama: Uygulamalardan (veya otomatik enstrümantasyon ile) temel metrikler (örnegin, gönderilen/alinan mesaj sayist, görev islem süresi) OpenTelemetry SDK araciligiyla toplanmis ve Prometheus tarafindan cekilebilir durumda.
+
+Metrik Görsellestirme: Grafana kurulumu yapilmis, Prometheus veri kaynagr eklenmis ve toplanan metrikleri gösteren basit bir dashboard olusturulmus.
+
+Proje Kodunun Son Hali: Gelistirilen tüm kodlar (Producer, Consumer, Docker Compose, OTel Collector config) bir GitHub deposunda düzenli bir sekilde paylagilmis.
+
+Açiklamali README.md: Projenin kurulumu, Docker ortaminin ayaga kaldirilmasi, Producer ve Consumer uygulamalarinin çalistinimasi, Jaeger ve Grafana gibi izleme arayüzlerine erisim talimatlari dahil detayli bir README.md dosyasi hazirlanmis.
+
+Opsiyonel
+
+Basit bir Web UI (Angular/React/Vue veya ASP.NET Core Razor Page) ile görev tetikleme ve temel durumu gosterme.
+
+Farkli görev tipleri için farkli kuyruklar veya routing key'ler kullanma.
+
+Hata yonetimi: Consumer'da hata olustugunda mesaji yeniden deneme veya Dead Letter Queue'ya gönderme. Hatalari trace'lerde isaretleme.
+
+Daha detayli metrikler: Kuyruktaki mesaj sayisi, mesajin kuyrukta bekleme suresi.
+
+Configuration vönetimi için appsettings.json veya Environment Variables kullanma.
+
+Prometheus Alertmanager ile basit bir uyari kurali tanimlama (örnegin, hata orani artarsa).

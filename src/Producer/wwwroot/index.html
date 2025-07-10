@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Görev Kuyruğu Yönetimi</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Görev Kuyruğu Yönetimi</h1>
+            <p>RabbitMQ tabanlı asenkron görev işleme sistemi</p>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-value" id="tasksSent">0</div>
+                <div class="stat-label">Gönderilen Görevler</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="systemStatus">Hazır</div>
+                <div class="stat-label">Sistem Durumu</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="lastUpdate">-</div>
+                <div class="stat-label">Son Güncelleme</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Yeni Görev Oluştur</h2>
+            <form id="taskForm">
+                <div class="form-group">
+                    <label for="taskType">Görev Tipi:</label>
+                    <select id="taskType" required>
+                        <option value="">Görev tipi seçin...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="title">Başlık:</label>
+                    <input type="text" id="title" required placeholder="Görev başlığını girin">
+                </div>
+                <div class="form-group">
+                    <label for="description">Açıklama:</label>
+                    <textarea id="description" required placeholder="Görev açıklamasını girin"></textarea>
+                </div>
+                <button type="submit" class="btn" id="submitBtn">Görev Gönder</button>
+            </form>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Görev gönderiliyor...</p>
+            </div>
+            
+            <div id="status"></div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html> 
