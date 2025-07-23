@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Consumer.Models;
+using TaskQueue.Shared.Models;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
@@ -19,10 +20,10 @@ namespace Consumer.Services
         private readonly TaskProcessor _taskProcessor;
         private readonly IConnection _connection;
         private readonly IModel _channel;
-        private readonly RabbitMQConfig _config;
+        private readonly ConsumerRabbitMQConfig _config;
         private static readonly ActivitySource ActivitySource = new("Consumer.Worker");
 
-        public ConsumerWorker(ILogger<ConsumerWorker> logger, TaskProcessor taskProcessor, IOptions<RabbitMQConfig> config)
+        public ConsumerWorker(ILogger<ConsumerWorker> logger, TaskProcessor taskProcessor, IOptions<ConsumerRabbitMQConfig> config)
         {
             _logger = logger;
             _taskProcessor = taskProcessor;

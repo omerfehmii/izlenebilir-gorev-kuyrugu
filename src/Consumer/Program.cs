@@ -11,6 +11,7 @@ using OpenTelemetry.Exporter;
 using Prometheus;
 using Consumer.Services;
 using Consumer.Models;
+using TaskQueue.Shared.Models;
 
 namespace Consumer
 {
@@ -30,7 +31,7 @@ namespace Consumer
             var builder = WebApplication.CreateBuilder(args);
 
             // Configure services
-            builder.Services.Configure<RabbitMQConfig>(builder.Configuration.GetSection("RabbitMQ"));
+            builder.Services.Configure<ConsumerRabbitMQConfig>(builder.Configuration.GetSection("RabbitMQ"));
             builder.Services.Configure<OpenTelemetryConfig>(builder.Configuration.GetSection("OpenTelemetry"));
             builder.Services.Configure<ApplicationConfig>(builder.Configuration.GetSection("Application"));
             

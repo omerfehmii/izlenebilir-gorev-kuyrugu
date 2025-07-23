@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Consumer.Models;
+using TaskQueue.Shared.Models;
 
 namespace Consumer.Services
 {

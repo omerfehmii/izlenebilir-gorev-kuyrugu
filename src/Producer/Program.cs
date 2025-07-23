@@ -15,6 +15,7 @@ using OpenTelemetry.Exporter;
 using Prometheus;
 using Producer.Models;
 using Producer.Services;
+using TaskQueue.Shared.Models;
 
 namespace Producer
 {

@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Producer.Models;
+using TaskQueue.Shared.Models;
 using RabbitMQ.Client;
 
 namespace Producer.Services
