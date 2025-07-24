@@ -73,7 +73,7 @@ namespace Producer.Services
 
         private void DeclareTaskQueues()
         {
-            var taskTypes = new[] { "ReportGeneration", "DataProcessing", "EmailNotification", "FileProcessing", "DatabaseCleanup" };
+            var taskTypes = QueueConfig.AllTaskTypes;
             
             foreach (var taskType in taskTypes)
             {

@@ -43,6 +43,7 @@ namespace Consumer.Models
 
         public int GetProcessingTime(string taskType)
         {
+            // QueueConfig.AllTaskTypes'ı kullanarak dynamic mapping
             return taskType switch
             {
                 "ReportGeneration" => ReportGeneration,

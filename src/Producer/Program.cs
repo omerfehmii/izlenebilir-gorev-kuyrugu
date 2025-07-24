@@ -98,14 +98,7 @@ namespace Producer
             app.MapFallbackToFile("index.html");
 
             // Get task types
-            app.MapGet("/api/task-types", () => new string[] 
-            { 
-                "ReportGeneration", 
-                "DataProcessing", 
-                "EmailNotification",
-                "FileProcessing",
-                "DatabaseCleanup"
-            });
+            app.MapGet("/api/task-types", () => QueueConfig.AllTaskTypes);
 
             // Send single task endpoint
             app.MapPost("/api/send-task", async (TaskRequest request, RabbitMQService rabbitMQService, ILogger<Program> logger) =>

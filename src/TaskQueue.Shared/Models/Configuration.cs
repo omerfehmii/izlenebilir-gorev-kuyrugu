@@ -21,6 +21,16 @@ namespace TaskQueue.Shared.Models
         public string DatabaseCleanup { get; set; } = "cleanup-queue";
         public string Default { get; set; } = "task-queue";
 
+        // Task tiplerini tek yerden yönetmek için
+        public static readonly string[] AllTaskTypes = new[]
+        {
+            "ReportGeneration",
+            "DataProcessing", 
+            "EmailNotification",
+            "FileProcessing",
+            "DatabaseCleanup"
+        };
+
         public string GetQueueName(string taskType)
         {
             return taskType switch
