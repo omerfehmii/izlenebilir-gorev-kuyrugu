@@ -19,24 +19,9 @@ using TaskQueue.Shared.Models;
 
 namespace Producer
 {
-    public class TaskRequest
-    {
-        public string TaskType { get; set; } = string.Empty;
-        public string Title { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public Dictionary<string, object>? Parameters { get; set; }
-    }
-
     class Program
     {
         private static readonly ActivitySource ActivitySource = new("Producer.App");
-        
-        // Prometheus Metrics
-        private static readonly Counter TasksSentCounter = Metrics.CreateCounter("producer_tasks_sent_total", "Toplam gönderilen görev sayısı", "task_type", "queue_name");
-        private static readonly Histogram TaskSendDuration = Metrics.CreateHistogram("producer_task_send_duration_seconds", "Görev gönderim süresi", "task_type");
-        private static readonly Counter TaskSendErrorsCounter = Metrics.CreateCounter("producer_task_send_errors_total", "Gönderim hataları", "task_type", "error_type");
-        private static readonly Gauge QueueSizeGauge = Metrics.CreateGauge("producer_queue_size", "Kuyruktaki mesaj sayısı", "queue_name");
-        private static readonly Counter RetryAttemptsCounter = Metrics.CreateCounter("producer_retry_attempts_total", "Retry denemesi sayısı", "task_type");
 
         static async Task Main(string[] args)
         {
@@ -48,6 +33,9 @@ namespace Producer
             builder.Services.Configure<ApplicationConfig>(builder.Configuration.GetSection("Application"));
             
             builder.Services.AddSingleton<RabbitMQService>();
+            
+            // Add controllers
+            builder.Services.AddControllers();
             
             // Configure logging
             builder.Logging.ClearProviders();
@@ -94,44 +82,11 @@ namespace Producer
             // Static files serving
             app.UseDefaultFiles();  // Serves index.html by default
             
+            // Map controllers
+            app.MapControllers();
+            
             // Optional: Explicit fallback to index.html for SPA
             app.MapFallbackToFile("index.html");
-
-            // Get task types
-            app.MapGet("/api/task-types", () => QueueConfig.AllTaskTypes);
-
-            // Send single task endpoint
-            app.MapPost("/api/send-task", async (TaskRequest request, RabbitMQService rabbitMQService, ILogger<Program> logger) =>
-            {
-                var task = new TaskMessage
-                {
-                    TaskType = request.TaskType,
-                    Title = request.Title,
-                    Description = request.Description,
-                    Parameters = request.Parameters ?? new Dictionary<string, object>()
-                };
-
-                var success = await SendSingleTaskAsync(rabbitMQService, logger, task);
-                
-                return success 
-                    ? Results.Ok(new { Message = "Task sent successfully", TaskId = task.Id })
-                    : Results.BadRequest(new { Message = "Failed to send task" });
-            });
-
-            // Get producer stats
-            app.MapGet("/api/stats", () => new
-            {
-                TasksSent = TasksSentCounter.Value,
-                Status = "Running",
-                Timestamp = DateTime.UtcNow
-            });
-
-            // Start sending tasks endpoint
-            app.MapPost("/send-tasks", async (RabbitMQService rabbitMQService, ILogger<Program> logger) =>
-            {
-                await SendDemoTasksAsync(rabbitMQService, logger);
-                return new { Message = "Demo tasks sent successfully" };
-            });
 
             // Configure to listen on configured port
             app.Urls.Add($"http://localhost:{appConfig.Port}");
@@ -287,7 +242,7 @@ namespace Producer
             foreach (var task in tasks)
             {
                 using var activity = ActivitySource.StartActivity($"process_task_{task.TaskType}");
-                using var timer = TaskSendDuration.NewTimer();
+                using var timer = Services.ProducerMetrics.TaskSendDuration.NewTimer();
                 
                 activity?.SetTag("task.id", task.Id);
                 activity?.SetTag("task.type", task.TaskType);
@@ -299,7 +254,7 @@ namespace Producer
                 
                 if (success)
                 {
-                    TasksSentCounter.Inc();
+                    Services.ProducerMetrics.TasksSentCounter.Inc();
                     logger.LogInformation("Görev başarıyla gönderildi: {TaskId}", task.Id);
                     activity?.SetStatus(ActivityStatusCode.Ok);
                 }
@@ -317,7 +272,7 @@ namespace Producer
         private static async Task<bool> SendSingleTaskAsync(RabbitMQService rabbitMQService, ILogger logger, TaskMessage task)
         {
             using var activity = ActivitySource.StartActivity($"process_task_{task.TaskType}");
-            using var timer = TaskSendDuration.WithLabels(task.TaskType).NewTimer();
+            using var timer = Services.ProducerMetrics.TaskSendDuration.WithLabels(task.TaskType).NewTimer();
             
             activity?.SetTag("task.id", task.Id);
             activity?.SetTag("task.type", task.TaskType);
@@ -328,7 +283,7 @@ namespace Producer
             // Track retry attempts if this is a retry
             if (task.RetryCount > 0)
             {
-                RetryAttemptsCounter.WithLabels(task.TaskType).Inc();
+                Services.ProducerMetrics.RetryAttemptsCounter.WithLabels(task.TaskType).Inc();
             }
             
             var success = await rabbitMQService.SendTaskAsync(task);
@@ -340,18 +295,18 @@ namespace Producer
                 var rabbitConfig = new RabbitMQConfig();
                 var queueName = rabbitConfig.Queues.GetQueueName(task.TaskType);
                 
-                TasksSentCounter.WithLabels(task.TaskType, queueName).Inc();
+                Services.ProducerMetrics.TasksSentCounter.WithLabels(task.TaskType, queueName).Inc();
                 logger.LogInformation("Görev başarıyla gönderildi: {TaskId}", task.Id);
                 activity?.SetStatus(ActivityStatusCode.Ok);
             }
             else
             {
-                TaskSendErrorsCounter.WithLabels(task.TaskType, "send_failure").Inc();
+                Services.ProducerMetrics.TaskSendErrorsCounter.WithLabels(task.TaskType, "send_failure").Inc();
                 logger.LogError("Görev gönderme hatası: {TaskId}", task.Id);
                 activity?.SetStatus(ActivityStatusCode.Error);
             }
 
-                        return success;
+            return success;
         }
     }
 }

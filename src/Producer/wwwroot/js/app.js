@@ -1,5 +1,5 @@
 // Load task types
-fetch('/api/task-types')
+fetch('/api/task/types')
     .then(response => response.json())
     .then(taskTypes => {
         const select = document.getElementById('taskType');
@@ -16,7 +16,7 @@ fetch('/api/task-types')
 
 // Load stats
 function loadStats() {
-    fetch('/api/stats')
+    fetch('/api/task/stats')
         .then(response => response.json())
         .then(stats => {
             document.getElementById('tasksSent').textContent = stats.tasksSent;
@@ -52,7 +52,7 @@ document.getElementById('taskForm').addEventListener('submit', async (e) => {
     statusDiv.innerHTML = '';
 
     try {
-        const response = await fetch('/api/send-task', {
+        const response = await fetch('/api/task/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(formData)
