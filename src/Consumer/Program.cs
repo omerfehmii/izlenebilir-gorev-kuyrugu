@@ -36,12 +36,28 @@ namespace Consumer
             builder.Services.Configure<ApplicationConfig>(builder.Configuration.GetSection("Application"));
             
             builder.Services.AddSingleton<TaskProcessor>();
-            builder.Services.AddHostedService<ConsumerWorker>();
+            
+            // Choose between traditional consumer or priority-based consumer
+            var usePriorityConsumer = builder.Configuration.GetValue<bool>("UsePriorityConsumer", true);
+            
+            if (usePriorityConsumer)
+            {
+                builder.Services.AddHostedService<PriorityConsumerManager>();
+                Console.WriteLine("🎯 Priority-based Consumer Manager enabled");
+            }
+            else
+            {
+                builder.Services.AddHostedService<ConsumerWorker>();
+                Console.WriteLine("📝 Traditional Consumer Worker enabled");
+            }
             
             // Configure logging
             builder.Logging.ClearProviders();
             builder.Logging.AddConsole();
             builder.Logging.SetMinimumLevel(LogLevel.Information);
+            
+            // Reduce OpenTelemetry console noise
+            builder.Logging.AddFilter("OpenTelemetry", LogLevel.Warning);
 
             // Get configuration values
             var otelConfig = builder.Configuration.GetSection("OpenTelemetry").Get<OpenTelemetryConfig>() ?? new OpenTelemetryConfig();
@@ -55,9 +71,9 @@ namespace Consumer
                         .SetResourceBuilder(ResourceBuilder.CreateDefault()
                             .AddService(otelConfig.ServiceName, otelConfig.ServiceVersion))
                         .AddSource("Consumer.Worker")
+                        .AddSource("Consumer.PriorityManager")
                         .AddSource("Consumer.TaskProcessor")
                         .AddHttpClientInstrumentation()
-                        .AddConsoleExporter()
                         .AddJaegerExporter(options =>
                         {
                             options.Endpoint = new Uri(otelConfig.JaegerEndpoint);

@@ -10,25 +10,35 @@ namespace AIService.Services
     /// </summary>
     public class TaskPredictionService : ITaskPredictionService
     {
-        private readonly MLContext _mlContext;
         private readonly ILogger<TaskPredictionService> _logger;
+        private readonly HybridAIService _hybridAI;
         private static readonly ActivitySource ActivitySource = new("AIService.Prediction");
-        
-        // Model cache
-        private ITransformer? _durationModel;
-        private ITransformer? _priorityModel;
         
         // İstatistikler
         private int _predictionsToday = 0;
         private readonly List<double> _processingTimes = new();
+        private bool _modelsInitialized = false;
         
-        public TaskPredictionService(ILogger<TaskPredictionService> logger)
+        public TaskPredictionService(ILogger<TaskPredictionService> logger, HybridAIService hybridAI)
         {
             _logger = logger;
-            _mlContext = new MLContext(seed: 1);
+            _hybridAI = hybridAI;
             
-            // Modelleri yükle (şimdilik basit placeholder)
-            InitializeModels();
+            // Initialize Hybrid AI models asynchronously
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _hybridAI.InitializeAsync();
+                    _modelsInitialized = true;
+                    _logger.LogInformation("✅ Hybrid AI başarıyla eğitildi - Synthetic learning tamamlandı");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ Hybrid AI eğitilemedi, basic fallback kullanılacak");
+                    _modelsInitialized = false;
+                }
+            });
         }
         
         public async Task<PredictionResponse> PredictAsync(PredictionRequest request)
@@ -54,26 +64,49 @@ namespace AIService.Services
                 
                 var predictions = new AIPredictions();
                 
-                // Duration Prediction
+                // Duration Prediction - Using Real ML Model
                 if (request.RequestedPredictions.HasFlag(PredictionTypes.Duration))
                 {
                     var durationTime = Stopwatch.StartNew();
-                    predictions.PredictedDurationMs = await PredictDurationAsync(features, request.TaskType);
-                    predictions.DurationConfidenceScore = CalculateConfidenceScore(features, "duration");
-                    predictions.DurationModel = "SimpleRegression_v1.0";
+                    if (_modelsInitialized)
+                    {
+                        var (duration, confidence) = await _hybridAI.PredictDurationAsync(features, request.TaskType);
+                        predictions.PredictedDurationMs = duration;
+                        predictions.DurationConfidenceScore = confidence;
+                        predictions.DurationModel = "Hybrid_AI_v2.0";
+                    }
+                    else
+                    {
+                        // Fallback to rule-based
+                        predictions.PredictedDurationMs = await PredictDurationFallbackAsync(features, request.TaskType);
+                        predictions.DurationConfidenceScore = 0.5;
+                        predictions.DurationModel = "RuleBased_Fallback_v1.0";
+                    }
                     durationTime.Stop();
                     response.Metrics.DurationModelTimeMs = durationTime.Elapsed.TotalMilliseconds;
                 }
                 
-                // Priority Scoring
+                // Priority Scoring - Using Real ML Model
                 if (request.RequestedPredictions.HasFlag(PredictionTypes.Priority))
                 {
                     var priorityTime = Stopwatch.StartNew();
-                    var priorityResult = await PredictPriorityAsync(features, request);
-                    predictions.CalculatedPriority = priorityResult.priority;
-                    predictions.PriorityScore = priorityResult.score;
-                    predictions.PriorityReason = priorityResult.reason;
-                    predictions.PriorityFactors = priorityResult.factors;
+                    if (_modelsInitialized)
+                    {
+                        var (priority, confidence, factors) = await _hybridAI.PredictPriorityAsync(features, request.TaskType);
+                        predictions.CalculatedPriority = priority;
+                        predictions.PriorityScore = confidence;
+                        predictions.PriorityReason = $"Hybrid AI prediction (confidence: {confidence:F2})";
+                        predictions.PriorityFactors = factors;
+                    }
+                    else
+                    {
+                        // Fallback to rule-based
+                        var priorityResult = await PredictPriorityFallbackAsync(features, request);
+                        predictions.CalculatedPriority = priorityResult.priority;
+                        predictions.PriorityScore = priorityResult.score;
+                        predictions.PriorityReason = $"Rule-based fallback: {priorityResult.reason}";
+                        predictions.PriorityFactors = priorityResult.factors;
+                    }
                     priorityTime.Stop();
                     response.Metrics.PriorityModelTimeMs = priorityTime.Elapsed.TotalMilliseconds;
                 }
@@ -87,15 +120,27 @@ namespace AIService.Services
                     predictions.QueueReason = queueRecommendation.reason;
                 }
                 
-                // Anomaly Detection
+                // Anomaly Detection - Using Real ML Model
                 if (request.RequestedPredictions.HasFlag(PredictionTypes.Anomaly))
                 {
                     var anomalyTime = Stopwatch.StartNew();
-                    var anomalyResult = await DetectAnomalyAsync(features, request);
-                    predictions.IsAnomaly = anomalyResult.isAnomaly;
-                    predictions.AnomalyScore = anomalyResult.score;
-                    predictions.AnomalyReason = anomalyResult.reason;
-                    predictions.AnomalyFlags = anomalyResult.flags;
+                    if (_modelsInitialized)
+                    {
+                        var (isAnomaly, score, flags) = await _hybridAI.DetectAnomalyAsync(features, request.TaskType);
+                        predictions.IsAnomaly = isAnomaly;
+                        predictions.AnomalyScore = score;
+                        predictions.AnomalyReason = $"Hybrid AI anomaly detection (score: {score:F2})";
+                        predictions.AnomalyFlags = flags;
+                    }
+                    else
+                    {
+                        // Fallback to rule-based
+                        var anomalyResult = await DetectAnomalyFallbackAsync(features, request);
+                        predictions.IsAnomaly = anomalyResult.isAnomaly;
+                        predictions.AnomalyScore = anomalyResult.score;
+                        predictions.AnomalyReason = anomalyResult.reason;
+                        predictions.AnomalyFlags = anomalyResult.flags;
+                    }
                     anomalyTime.Stop();
                     response.Metrics.AnomalyModelTimeMs = anomalyTime.Elapsed.TotalMilliseconds;
                 }
@@ -120,7 +165,7 @@ namespace AIService.Services
                 
                 // Optimization Suggestions
                 predictions.OptimizationSuggestions = GenerateOptimizationSuggestions(features, predictions);
-                predictions.AIServiceVersion = "1.0.0-beta";
+                predictions.AIServiceVersion = _modelsInitialized ? "2.0.0-hybrid-ai" : "1.0.0-fallback";
                 
                 response.Predictions = predictions;
                 response.Success = true;
@@ -190,18 +235,22 @@ namespace AIService.Services
         
         public async Task<ModelStatistics> GetModelStatisticsAsync()
         {
+            var hybridStats = _modelsInitialized ? _hybridAI.GetModelStatistics() : new Dictionary<string, object>();
+            
             return new ModelStatistics
             {
-                ModelVersion = "1.0.0-beta",
-                LastTrainingDate = DateTime.UtcNow.AddDays(-1), // Placeholder
+                ModelVersion = _modelsInitialized ? "2.0.0-hybrid-ai" : "1.0.0-fallback",
+                LastTrainingDate = _modelsInitialized ? (DateTime)hybridStats.GetValueOrDefault("last_update", DateTime.UtcNow) : DateTime.MinValue,
                 PredictionsToday = _predictionsToday,
                 AverageProcessingTimeMs = _processingTimes.Count > 0 ? _processingTimes.Average() : 0,
-                AccuracyScore = 0.85, // Placeholder
+                AccuracyScore = _modelsInitialized ? (double)hybridStats.GetValueOrDefault("avg_prediction_accuracy", 0.78) : 0.5,
                 ModelMetrics = new Dictionary<string, object>
                 {
                     ["total_predictions"] = _predictionsToday,
                     ["avg_processing_time"] = _processingTimes.Count > 0 ? _processingTimes.Average() : 0,
-                    ["model_memory_usage"] = GC.GetTotalMemory(false)
+                    ["model_memory_usage"] = GC.GetTotalMemory(false),
+                    ["hybrid_ai_stats"] = hybridStats,
+                    ["models_initialized"] = _modelsInitialized
                 }
             };
         }
@@ -236,7 +285,7 @@ namespace AIService.Services
             return features;
         }
         
-        private async Task<double> PredictDurationAsync(TaskFeatures features, string taskType)
+        private async Task<double> PredictDurationFallbackAsync(TaskFeatures features, string taskType)
         {
             // Basit kural tabanlı tahmin (gerçek ML modeli olmadan önce)
             var baseDuration = taskType switch
@@ -280,7 +329,7 @@ namespace AIService.Services
             return Math.Max(1000, predictedDuration); // Minimum 1 saniye
         }
         
-        private async Task<(int priority, double score, string reason, Dictionary<string, double> factors)> PredictPriorityAsync(TaskFeatures features, PredictionRequest request)
+        private async Task<(int priority, double score, string reason, Dictionary<string, double> factors)> PredictPriorityFallbackAsync(TaskFeatures features, PredictionRequest request)
         {
             var factors = new Dictionary<string, double>();
             
@@ -385,7 +434,7 @@ namespace AIService.Services
             return ("normal-priority-queue", 0.6, "Standard processing queue");
         }
         
-        private async Task<(bool isAnomaly, double score, string reason, List<string> flags)> DetectAnomalyAsync(TaskFeatures features, PredictionRequest request)
+        private async Task<(bool isAnomaly, double score, string reason, List<string> flags)> DetectAnomalyFallbackAsync(TaskFeatures features, PredictionRequest request)
         {
             var flags = new List<string>();
             var anomalyScore = 0.0;

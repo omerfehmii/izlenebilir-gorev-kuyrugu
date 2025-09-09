@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using System.Net.Http;
+using System.Security.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -31,8 +33,25 @@ namespace Producer
             builder.Services.Configure<RabbitMQConfig>(builder.Configuration.GetSection("RabbitMQ"));
             builder.Services.Configure<OpenTelemetryConfig>(builder.Configuration.GetSection("OpenTelemetry"));
             builder.Services.Configure<ApplicationConfig>(builder.Configuration.GetSection("Application"));
+            builder.Services.Configure<AIServiceConfig>(builder.Configuration.GetSection("AIService"));
             
-            builder.Services.AddSingleton<RabbitMQService>();
+            // HTTP Client for AI Service
+            builder.Services.AddHttpClient<IAIService, Services.AIService>(client =>
+            {
+                var aiConfig = builder.Configuration.GetSection("AIService").Get<AIServiceConfig>() ?? new AIServiceConfig();
+                client.BaseAddress = new Uri(aiConfig.BaseUrl);
+                client.Timeout = TimeSpan.FromMilliseconds(aiConfig.TimeoutMs);
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler()
+            {
+                ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true, // Dev only - ignore SSL
+                ClientCertificateOptions = ClientCertificateOption.Manual,
+                SslProtocols = System.Security.Authentication.SslProtocols.None // Disable SSL entirely for HTTP
+            });
+            
+            // RabbitMQ Services
+            builder.Services.AddSingleton<RabbitMQService>(); // Keep for backward compatibility
+            builder.Services.AddSingleton<AIOptimizedRabbitMQService>(); // New AI-optimized service
             
             // Add controllers
             builder.Services.AddControllers();
@@ -41,6 +60,9 @@ namespace Producer
             builder.Logging.ClearProviders();
             builder.Logging.AddConsole();
             builder.Logging.SetMinimumLevel(LogLevel.Information);
+            
+            // Reduce OpenTelemetry console noise
+            builder.Logging.AddFilter("OpenTelemetry", LogLevel.Warning);
 
             // Get configuration values
             var otelConfig = builder.Configuration.GetSection("OpenTelemetry").Get<OpenTelemetryConfig>() ?? new OpenTelemetryConfig();
@@ -54,9 +76,10 @@ namespace Producer
                         .AddService(otelConfig.ServiceName, otelConfig.ServiceVersion))
                         .AddSource(ActivitySource.Name)
                         .AddSource("Producer.RabbitMQ")
+                        .AddSource("Producer.AIOptimizedRabbitMQ")
+                        .AddSource("Producer.AIService")
                         .AddHttpClientInstrumentation()
                         .AddAspNetCoreInstrumentation()
-                        .AddConsoleExporter()
                         .AddJaegerExporter(options =>
                         {
                             options.Endpoint = new Uri(otelConfig.JaegerEndpoint);
@@ -67,10 +90,12 @@ namespace Producer
             var app = builder.Build();
 
             // Configure HTTP pipeline
-            app.UseRouting();
             
-            // Serve static files for Web UI
+            // Serve static files FIRST
+            app.UseDefaultFiles();  // Serves index.html by default
             app.UseStaticFiles();
+            
+            app.UseRouting();
             
             // Prometheus metrics endpoint
             app.UseHttpMetrics();
@@ -78,33 +103,213 @@ namespace Producer
 
             // Health check endpoint
             app.MapGet("/health", () => new { Status = "Healthy", Timestamp = DateTime.UtcNow });
-
-            // Static files serving
-            app.UseDefaultFiles();  // Serves index.html by default
+            
+            // Web UI endpoint (temporary fix)
+            app.MapGet("/", async context =>
+            {
+                var htmlPath = Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "index.html");
+                if (File.Exists(htmlPath))
+                {
+                    var html = await File.ReadAllTextAsync(htmlPath);
+                    context.Response.ContentType = "text/html";
+                    await context.Response.WriteAsync(html);
+                }
+                else
+                {
+                    context.Response.StatusCode = 404;
+                    await context.Response.WriteAsync("Web UI not found");
+                }
+            });
+            
+            // CSS endpoint
+            app.MapGet("/css/{filename}", async (string filename, HttpContext context) =>
+            {
+                var cssPath = Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "css", filename);
+                if (File.Exists(cssPath))
+                {
+                    var css = await File.ReadAllTextAsync(cssPath);
+                    context.Response.ContentType = "text/css";
+                    await context.Response.WriteAsync(css);
+                }
+                else
+                {
+                    context.Response.StatusCode = 404;
+                }
+            });
+            
+            // JS endpoint
+            app.MapGet("/js/{filename}", async (string filename, HttpContext context) =>
+            {
+                var jsPath = Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "js", filename);
+                if (File.Exists(jsPath))
+                {
+                    var js = await File.ReadAllTextAsync(jsPath);
+                    context.Response.ContentType = "application/javascript";
+                    await context.Response.WriteAsync(js);
+                }
+                else
+                {
+                    context.Response.StatusCode = 404;
+                }
+            });
             
             // Map controllers
             app.MapControllers();
             
-            // Optional: Explicit fallback to index.html for SPA
+            // SPA fallback for client-side routing
             app.MapFallbackToFile("index.html");
 
             // Configure to listen on configured port
-            app.Urls.Add($"http://localhost:{appConfig.Port}");
+            var port = appConfig.Port;
+            app.Urls.Add($"http://localhost:{port}");
 
             var logger = app.Services.GetRequiredService<ILogger<Program>>();
-            logger.LogInformation("Producer uygulaması başlatıldı - Port: {Port}", appConfig.Port);
+            logger.LogInformation("Producer uygulaması başlatıldı - Port: {Port}", port);
 
-            // Background task to send demo tasks periodically (if enabled)
-            if (appConfig.AutoSendTasks)
-            {
-            _ = Task.Run(async () =>
-            {
-                var rabbitMQService = app.Services.GetRequiredService<RabbitMQService>();
-                await SendTasksSequentiallyAsync(rabbitMQService, logger, appConfig.AutoSendInterval);
-            });
-            }
+            // Note: Otomatik görev gönderimi artık Web UI'dan kontrol ediliyor
+            // AutoTask API endpoints: /api/autotask/start, /api/autotask/stop
+            logger.LogInformation("🎯 Otomatik görev sistemi Web UI kontrolünde - /api/autotask endpoints hazır");
 
             await app.RunAsync();
+        }
+
+        private static async Task SendAIOptimizedTasksSequentiallyAsync(AIOptimizedRabbitMQService aiOptimizedService, ILogger logger, int intervalMs)
+        {
+            var taskGenerator = new ImprovedTaskGenerator(seed: 42);
+            var taskCounter = 0;
+            
+            // Wait for AI Service to be ready
+            await Task.Delay(8000);
+            logger.LogInformation("🚀 Improved AI-Optimized task generation başlatılıyor...");
+            
+            // Send test suite first
+            logger.LogInformation("📋 Test suite gönderiliyor...");
+            var testTasks = taskGenerator.GenerateTestSuite();
+            
+            foreach (var testTask in testTasks)
+            {
+                logger.LogInformation("🧪 Test task: {TaskType} - {Title} (Priority: {Priority}, User: {UserTier})", 
+                    testTask.TaskType, testTask.Title, testTask.Priority, testTask.AIFeatures?.UserTier);
+                
+                var success = await aiOptimizedService.SendTaskAsync(testTask);
+                if (success)
+                {
+                    logger.LogInformation("✅ Test task sent: {TaskId}", testTask.Id);
+                }
+                
+                await Task.Delay(2000); // 2 second between test tasks
+            }
+            
+            logger.LogInformation("✅ Test suite tamamlandı, realistic task generation başlıyor...");
+            
+            // Continue with realistic task generation
+            while (true)
+            {
+                await Task.Delay(intervalMs);
+                taskCounter++;
+                
+                var task = taskGenerator.GenerateRealisticTask();
+
+                logger.LogInformation("🎯 Realistic task: {TaskType} - {Title} (Priority: {Priority}, User: {UserTier}, Business: {BusinessPriority})", 
+                    task.TaskType, task.Title, task.Priority, 
+                    task.AIFeatures?.UserTier, task.AIFeatures?.BusinessPriority);
+                
+                var success = await aiOptimizedService.SendTaskAsync(task);
+                
+                if (success)
+                {
+                    logger.LogInformation("✅ Realistic task sent: {TaskId}", task.Id);
+                }
+                else
+                {
+                    logger.LogError("❌ Task sending failed: {TaskId}", task.Id);
+                }
+                
+                // Her 5 görevde bir metrics yazdır
+                if (taskCounter % 5 == 0)
+                {
+                    var metrics = aiOptimizedService.GetMetrics();
+                    logger.LogInformation("📊 AI Optimization Metrics: Total={Total}, AI-Optimized={AIOptimized}, Fallback={Fallback}, Rate={Rate:P1}",
+                        metrics.Total, metrics.AIOptimized, metrics.Fallback, metrics.AIOptimizationRate);
+                }
+            }
+        }
+
+        private static TaskMessage[] CreateTaskTemplates()
+        {
+            return new[]
+            {
+                new TaskMessage
+                {
+                    TaskType = "ReportGeneration",
+                    Title = "Aylık Satış Raporu",
+                    Description = "Aylık satış verilerini analiz et ve rapor oluştur",
+                    Parameters = new Dictionary<string, object>
+                    {
+                        ["Month"] = DateTime.Now.ToString("MMMM"),
+                        ["Year"] = DateTime.Now.Year,
+                        ["Format"] = "PDF"
+                    }
+                },
+                new TaskMessage
+                {
+                    TaskType = "DataProcessing",
+                    Title = "Veri İşleme",
+                    Description = "Gelen veri setini temizle ve işle",
+                    Parameters = new Dictionary<string, object>
+                    {
+                        ["BatchId"] = $"BATCH_{DateTime.Now:yyyyMMdd}_{Random.Shared.Next(1000, 9999)}",
+                        ["RecordCount"] = Random.Shared.Next(100, 2000)
+                    }
+                },
+                new TaskMessage
+                {
+                    TaskType = "EmailNotification",
+                    Title = "Bildirim Gönderimi",
+                    Description = "Kullanıcılara önemli bildirimleri gönder",
+                    Parameters = new Dictionary<string, object>
+                    {
+                        ["Recipients"] = "active_users",
+                        ["Template"] = "notification_template",
+                        ["Priority"] = "Normal"
+                    }
+                },
+                new TaskMessage
+                {
+                    TaskType = "FileProcessing",
+                    Title = "Dosya İşleme",
+                    Description = "Yüklenen dosyaları işle ve arşivle",
+                    Parameters = new Dictionary<string, object>
+                    {
+                        ["FileType"] = "Document",
+                        ["Location"] = "/uploads/pending",
+                        ["MaxSize"] = "10MB"
+                    }
+                },
+                new TaskMessage
+                {
+                    TaskType = "DatabaseCleanup",
+                    Title = "Veritabanı Temizliği",
+                    Description = "Eski kayıtları temizle ve optimize et",
+                    Parameters = new Dictionary<string, object>
+                    {
+                        ["RetentionDays"] = 90,
+                        ["Tables"] = new[] { "logs", "sessions", "temp_data" },
+                        ["Optimize"] = true
+                    }
+                }
+            };
+        }
+        
+        private static TaskMessage CreateTaskFromTemplate(TaskMessage template)
+        {
+            return new TaskMessage
+            {
+                TaskType = template.TaskType,
+                Title = template.Title,
+                Description = template.Description,
+                Parameters = template.Parameters
+            };
         }
 
         private static async Task SendTasksSequentiallyAsync(RabbitMQService rabbitMQService, ILogger logger, int intervalMs)

@@ -49,23 +49,50 @@ services:
     networks:
       - observability
 
-  # Producer App
+  # Producer App - AI-Optimized
   producer:
     build:
       context: ./src/Producer
       dockerfile: Dockerfile
     container_name: producer
+    ports:
+      - "8080:80"
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
       - RABBITMQ_USER=admin
       - RABBITMQ_PASSWORD=admin123
+      - AI_SERVICE_URL=http://ai-service:80
     depends_on:
       - rabbitmq
+      - ai-service
       - otel-collector
     networks:
       - observability
+
+  # AI Service - Hybrid AI with synthetic learning
+  ai-service:
+    build:
+      context: ./src
+      dockerfile: AIService/Dockerfile
+    container_name: ai-service
+    ports:
+      - "7043:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      - otel-collector
+    networks:
+      - observability
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # Consumer App
   consumer:

@@ -9,7 +9,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 
 // Add AI Services
-builder.Services.AddScoped<ITaskPredictionService, TaskPredictionService>();
+builder.Services.AddSingleton<HybridAIService>(); // Hybrid AI with synthetic learning (Singleton - once only)
+builder.Services.AddSingleton<ITaskPredictionService, TaskPredictionService>(); // Singleton - eğitim sadece bir kez
 
 // Add OpenTelemetry
 builder.Services.AddOpenTelemetry()
