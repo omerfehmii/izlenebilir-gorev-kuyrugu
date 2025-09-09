@@ -12,13 +12,13 @@ namespace Producer.Controllers
     [Route("api/[controller]")]
     public class TaskController : ControllerBase
     {
-        private readonly RabbitMQService _rabbitMQService;
+        private readonly AIOptimizedRabbitMQService _aiOptimizedService;
         private readonly ILogger<TaskController> _logger;
         private static readonly ActivitySource ActivitySource = new("Producer.App");
 
-        public TaskController(RabbitMQService rabbitMQService, ILogger<TaskController> logger)
+        public TaskController(AIOptimizedRabbitMQService aiOptimizedService, ILogger<TaskController> logger)
         {
-            _rabbitMQService = rabbitMQService;
+            _aiOptimizedService = aiOptimizedService;
             _logger = logger;
         }
 
@@ -31,19 +31,50 @@ namespace Producer.Controllers
         [HttpPost("send")]
         public async Task<IActionResult> SendTask([FromBody] TaskRequest request)
         {
-            var task = new TaskMessage
+            try
             {
-                TaskType = request.TaskType,
-                Title = request.Title,
-                Description = request.Description,
-                Parameters = request.Parameters ?? new Dictionary<string, object>()
-            };
+                var task = new TaskMessage
+                {
+                    TaskType = request.TaskType,
+                    Title = request.Title,
+                    Description = request.Description,
+                    Priority = request.Priority,
+                    Parameters = request.Parameters ?? new Dictionary<string, object>()
+                };
 
-            var success = await SendSingleTaskAsync(task);
-            
-            return success 
-                ? Ok(new { Message = "Task sent successfully", TaskId = task.Id })
-                : BadRequest(new { Message = "Failed to send task" });
+                // Add basic AI features for web UI tasks
+                task.AIFeatures = new TaskFeatures
+                {
+                    UserId = "web_ui_user",
+                    UserTier = "premium", // Web UI users get premium treatment
+                    BusinessPriority = "normal",
+                    Source = "web_interface",
+                    InputSize = (task.Description?.Length ?? 0) * 10 // Estimate based on description
+                };
+
+                var success = await _aiOptimizedService.SendTaskAsync(task);
+                
+                if (success)
+                {
+                    _logger.LogInformation("✅ Web UI task sent: {TaskId} - {TaskType}", task.Id, task.TaskType);
+                    return Ok(new { 
+                        message = "Task sent successfully", 
+                        taskId = task.Id,
+                        aiProcessed = task.IsAIProcessed,
+                        priority = task.GetEffectivePriority()
+                    });
+                }
+                else
+                {
+                    _logger.LogWarning("❌ Web UI task failed: {TaskType}", task.TaskType);
+                    return BadRequest(new { message = "Failed to send task" });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Web UI task sending error");
+                return StatusCode(500, new { message = ex.Message });
+            }
         }
 
         [HttpGet("stats")]
@@ -64,45 +95,6 @@ namespace Producer.Controllers
             return Ok(new { Message = "Demo tasks sent successfully" });
         }
 
-        private async Task<bool> SendSingleTaskAsync(TaskMessage task)
-        {
-            using var activity = ActivitySource.StartActivity($"process_task_{task.TaskType}");
-            using var timer = Services.ProducerMetrics.TaskSendDuration.WithLabels(task.TaskType).NewTimer();
-            
-            activity?.SetTag("task.id", task.Id);
-            activity?.SetTag("task.type", task.TaskType);
-            activity?.SetTag("task.title", task.Title);
-
-            _logger.LogInformation("Görev gönderiliyor: {TaskTitle}", task.Title);
-            
-            // Track retry attempts if this is a retry
-            if (task.RetryCount > 0)
-            {
-                Services.ProducerMetrics.RetryAttemptsCounter.WithLabels(task.TaskType).Inc();
-            }
-            
-            var success = await _rabbitMQService.SendTaskAsync(task);
-            
-            if (success)
-            {
-                // Get queue name for metrics
-                var appConfig = new ApplicationConfig(); // This should be injected, but for now we'll create it
-                var rabbitConfig = new RabbitMQConfig();
-                var queueName = rabbitConfig.Queues.GetQueueName(task.TaskType);
-                
-                Services.ProducerMetrics.TasksSentCounter.WithLabels(task.TaskType, queueName).Inc();
-                _logger.LogInformation("Görev başarıyla gönderildi: {TaskId}", task.Id);
-                activity?.SetStatus(ActivityStatusCode.Ok);
-            }
-            else
-            {
-                Services.ProducerMetrics.TaskSendErrorsCounter.WithLabels(task.TaskType, "send_failure").Inc();
-                _logger.LogError("Görev gönderme hatası: {TaskId}", task.Id);
-                activity?.SetStatus(ActivityStatusCode.Error);
-            }
-
-            return success;
-        }
 
         private async Task SendDemoTasksAsync()
         {
@@ -155,7 +147,7 @@ namespace Producer.Controllers
 
                 _logger.LogInformation("Görev gönderiliyor: {TaskTitle}", task.Title);
                 
-                var success = await _rabbitMQService.SendTaskAsync(task);
+                var success = await _aiOptimizedService.SendTaskAsync(task);
                 
                 if (success)
                 {
@@ -180,6 +172,7 @@ namespace Producer.Controllers
         public string TaskType { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        public int Priority { get; set; } = 5; // Default priority
         public Dictionary<string, object>? Parameters { get; set; }
     }
 } 

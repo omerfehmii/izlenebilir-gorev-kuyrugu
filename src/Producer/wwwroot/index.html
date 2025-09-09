@@ -23,13 +23,48 @@
                 <div class="stat-label">Sistem Durumu</div>
             </div>
             <div class="stat-card">
+                <div class="stat-value" id="aiStatus">❌</div>
+                <div class="stat-label">AI Service</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="autoTaskStatus">Durduruldu</div>
+                <div class="stat-label">Otomatik Görevler</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-value" id="lastUpdate">-</div>
                 <div class="stat-label">Son Güncelleme</div>
             </div>
         </div>
 
         <div class="card">
-            <h2>Yeni Görev Oluştur</h2>
+            <h2>🤖 AI-Optimized Otomatik Görev Sistemi</h2>
+            <div class="auto-task-controls">
+                <div class="control-group">
+                    <label for="autoTaskInterval">Görev Aralığı (saniye):</label>
+                    <input type="number" id="autoTaskInterval" value="10" min="5" max="300">
+                </div>
+                <div class="control-group">
+                    <label for="taskScenario">Senaryo:</label>
+                    <select id="taskScenario">
+                        <option value="mixed">Karışık Senaryolar</option>
+                        <option value="month_end">Ay Sonu Kapanış</option>
+                        <option value="daily_ops">Günlük Operasyonlar</option>
+                        <option value="customer_support">Müşteri Desteği</option>
+                        <option value="system_maintenance">Sistem Bakımı</option>
+                        <option value="test_suite">Test Paketi</option>
+                    </select>
+                </div>
+                <div class="button-group">
+                    <button id="startAutoTasks" class="btn btn-success">▶️ Otomatik Görevleri Başlat</button>
+                    <button id="stopAutoTasks" class="btn btn-danger" style="display:none;">⏹️ Durdur</button>
+                    <button id="sendTestSuite" class="btn btn-info">🧪 Test Paketi Gönder</button>
+                </div>
+            </div>
+            <div id="autoTaskStatus" class="status-info"></div>
+        </div>
+
+        <div class="card">
+            <h2>📝 Manuel Görev Oluştur</h2>
             <form id="taskForm">
                 <div class="form-group">
                     <label for="taskType">Görev Tipi:</label>
@@ -45,7 +80,11 @@
                     <label for="description">Açıklama:</label>
                     <textarea id="description" required placeholder="Görev açıklamasını girin"></textarea>
                 </div>
-                <button type="submit" class="btn" id="submitBtn">Görev Gönder</button>
+                <div class="form-group">
+                    <label for="priority">Öncelik (0-10):</label>
+                    <input type="number" id="priority" min="0" max="10" value="5" placeholder="Görev önceliği">
+                </div>
+                <button type="submit" class="btn" id="submitBtn">🚀 AI-Optimized Görev Gönder</button>
             </form>
             
             <div class="loading" id="loading">

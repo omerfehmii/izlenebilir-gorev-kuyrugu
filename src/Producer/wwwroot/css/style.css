@@ -163,4 +163,63 @@ textarea {
 @keyframes spin { 
     0% { transform: rotate(0deg); } 
     100% { transform: rotate(360deg); } 
-} 
+}
+
+/* AI-Optimized Auto Task Controls */
+.auto-task-controls {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.control-group {
+    margin-bottom: 15px;
+}
+
+.control-group label {
+    color: white;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.control-group input,
+.control-group select {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+}
+
+.status-info {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+    font-weight: 500;
+}
+
+/* AI Status Colors */
+.ai-status-healthy { color: #48bb78; }
+.ai-status-unhealthy { color: #f56565; }
+.auto-task-running { color: #48bb78; }
+.auto-task-stopped { color: #ed8936; } 
