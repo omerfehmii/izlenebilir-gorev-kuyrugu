@@ -1,219 +1,113 @@
 # İzlenebilir Görev Kuyruğu (Trackable Task Queue)
 
-Bu proje RabbitMQ kullanarak asenkron görev işleme sistemini ve OpenTelemetry ile tam izlenebilirlik altyapısını göstermektedir.
+AI destekli, öncelik tabanlı görev kuyruğu sistemi. RabbitMQ, .NET 6, ve OpenTelemetry ile tam izlenebilirlik.
 
 ## 🏗️ Mimari
 
 ```
-Producer App → RabbitMQ → Consumer App
-     ↓           ↓            ↓
-OpenTelemetry Collector ← ← ← ←
-     ↓           ↓
-  Jaeger    Prometheus
-              ↓
-           Grafana
+Producer (8081) → RabbitMQ → Consumer (8082)
+     ↓              ↓            ↓
+    AI Service → OpenTelemetry Collector
+  (5178)           ↓        ↓
+               Jaeger   Prometheus
+                          ↓
+                      Grafana
 ```
+
+## ✨ Özellikler
+
+- 🧠 **AI Destekli Önceliklendirme**: Görevler süre ve öncelik tahmini ile otomatik sıralanır
+- 📊 **Tam İzlenebilirlik**: Producer'dan Consumer'a kadar her adım trace edilir
+- 🚀 **Web Arayüzü**: Manuel görev gönderimi ve monitoring dashboard
+- ⚡ **Asenkron İşleme**: RabbitMQ ile queue-based architecture
+- 📈 **Real-time Monitoring**: Grafana dashboard ile canlı metriklər
+
+## 🚀 Hızlı Başlangıç
+
+### 1. Infrastructure'ı Başlat
+```bash
+docker-compose up -d
+```
+
+### 2. Uygulamaları Çalıştır
+```bash
+# Terminal 1 - Consumer
+cd src/Consumer && dotnet run
+
+# Terminal 2 - Producer  
+cd src/Producer && dotnet run
+
+# Terminal 3 - AI Service (opsiyonel)
+cd src/AIService && dotnet run
+```
+
+### 3. Web Arayüzünü Kullan
+- **Producer UI**: http://localhost:8081 (görev gönderimi)
+- **Grafana**: http://localhost:3000 (admin/admin123)
+- **Jaeger**: http://localhost:16686 (trace görüntüleme)
+
+## 🎯 Görev Türleri
+
+| Tür | Süre | Açıklama |
+|-----|------|----------|
+| **ReportGeneration** | ~8s | Rapor oluşturma ve PDF dönüştürme |
+| **DataProcessing** | ~5s | Veri doğrulama ve analiz |
+| **EmailNotification** | ~3s | E-posta template ve gönderim |
+| **FileProcessing** | ~6s | Dosya işleme ve dönüştürme |
+| **DatabaseCleanup** | ~42s | Veritabanı temizlik işlemleri |
 
 ## 🛠️ Teknolojiler
 
-- **.NET 6**: Producer ve Consumer uygulamaları
+- **.NET 6**: Backend servisleri
 - **RabbitMQ**: Mesaj kuyruğu
-- **OpenTelemetry**: Distributed tracing ve metrik toplama
-- **Jaeger**: Trace görselleştirme
-- **Prometheus**: Metrik depolama
-- **Grafana**: Dashboard ve görselleştirme
-- **Docker/Docker Compose**: Container orchestration
+- **AI/ML**: Hybrid prediction model
+- **OpenTelemetry**: Distributed tracing
+- **Jaeger, Prometheus, Grafana**: Monitoring stack
+- **Docker**: Container orchestration
 
-## 📋 Özellikler
+## 📊 Monitoring
 
-- ✅ Asenkron görev işleme
-- ✅ Distributed tracing (Producer → Consumer)
-- ✅ Context propagation
-- ✅ Metrik toplama ve izleme
-- ✅ Real-time dashboard
-- ✅ Error handling ve retry mekanizması
-- ✅ Farklı görev türleri
-- ✅ Detaylı loglama
+### Dashboard'lar
+- **Executive Operations**: Üst düzey KPI'lar
+- **Task Queue Dashboard**: Detaylı kuyruk metrikleri
+- **Simple Dashboard**: Temel göstergeler
 
-## 🚀 Kurulum ve Çalıştırma
-
-### 1. Docker Ortamını Başlatma
-
-```bash
-# Tüm infrastructure servislerini başlat
-docker-compose up -d
-
-# Servislerin durumunu kontrol et
-docker-compose ps
-```
-
-### 2. .NET Uygulamalarını Derleme
-
-```bash
-# Producer uygulamasını derle
-cd src/Producer
-dotnet build
-
-# Consumer uygulamasını derle
-cd ../Consumer
-dotnet build
-cd ../..
-```
-
-### 3. Consumer Uygulamasını Başlatma
-
-```bash
-# Terminal 1 - Consumer'ı çalıştır
-cd src/Consumer
-dotnet run
-```
-
-### 4. Producer Uygulamasını Çalıştırma
-
-```bash
-# Terminal 2 - Producer'ı çalıştır
-cd src/Producer
-dotnet run
-```
-
-## 🔗 Web Arayüzleri
-
-Servislerin başarıyla çalıştığını doğrulamak için aşağıdaki URL'leri ziyaret edebilirsiniz:
-
+### Servis URL'leri
 | Servis | URL | Açıklama |
 |--------|-----|----------|
-| **RabbitMQ Management** | http://localhost:15672 | Kuyruk yönetimi (admin/admin123) |
-| **Jaeger UI** | http://localhost:16686 | Distributed tracing |
-| **Prometheus** | http://localhost:9090 | Metrik sorguları |
-| **Grafana** | http://localhost:3000 | Dashboard (admin/admin123) |
-
-## 📊 İzleme ve Görselleştirme
-
-### Jaeger Traces
-- Producer'dan Consumer'a tam trace akışı
-- Her görev için detaylı span bilgileri
-- Error tracking ve performance metrikleri
-
-### Grafana Dashboard
-- Görev işleme oranları
-- Mesaj kuyrugu metrikleri
-- Sistem sağlık durumu
-- Real-time log akışı
-
-## 📝 Görev Türleri
-
-Sistem 3 farklı görev türünü desteklemektedir:
-
-### 1. ReportGeneration (Rapor Oluşturma)
-- **Süre**: ~8 saniye
-- **Adımlar**: Veri toplama → Analiz → Rapor oluşturma → PDF dönüştürme
-
-### 2. DataProcessing (Veri İşleme)
-- **Süre**: ~5 saniye  
-- **Adımlar**: Veri doğrulama → Temizleme → Analiz
-
-### 3. EmailNotification (E-posta Bildirimi)
-- **Süre**: ~3 saniye
-- **Adımlar**: Template hazırlama → E-posta gönderimi
+| Producer | http://localhost:8081 | Görev gönderimi |
+| Consumer | http://localhost:8082 | Health check |
+| AI Service | http://localhost:5178 | Prediction API |
+| RabbitMQ | http://localhost:15672 | Kuyruk yönetimi (admin/admin123) |
+| Grafana | http://localhost:3000 | Dashboard (admin/admin123) |
+| Jaeger | http://localhost:16686 | Trace görüntüleme |
+| Prometheus | http://localhost:9090 | Metrik sorguları |
 
 ## 🔧 Konfigürasyon
 
-### RabbitMQ Ayarları
-```
-Host: localhost:5672
-Management UI: localhost:15672
-Username: admin
-Password: admin123
-Queue: task-queue
-```
+Tüm servisler environment-aware config kullanır:
+- **Development**: `appsettings.json`
+- **Production**: `appsettings.Production.json`
 
-### OpenTelemetry Endpoint
-```
-OTLP Endpoint: http://localhost:4317
-```
+## 🐛 Sorun Giderme
 
-## 📈 Örnek Kullanım Senaryosu
-
-1. **Producer** 3 farklı görev mesajı oluşturur ve RabbitMQ'ya gönderir
-2. **Consumer** mesajları alır ve sırayla işler
-3. **OpenTelemetry** her işlem adımını trace olarak kaydeder
-4. **Jaeger** trace'leri görselleştirir
-5. **Prometheus** metrikleri toplar
-6. **Grafana** dashboard'da gerçek zamanlı görselleştirme sağlar
-
-## 🐛 Hata Ayıklama
-
-### Container Loglarını İnceleme
 ```bash
-# Tüm servislerin loglarını göster
-docker-compose logs -f
+# Servis durumları
+docker-compose ps
 
-# Belirli bir servisin loglarını göster
-docker-compose logs -f rabbitmq
-docker-compose logs -f jaeger
+# Logları inceleme
+docker-compose logs -f [servis-adı]
+
+# .NET build/run
+cd src/[Producer|Consumer|AIService]
+dotnet build && dotnet run
 ```
-
-### .NET Uygulaması Logları
-```bash
-# Consumer logları
-cd src/Consumer && dotnet run
-
-# Producer logları  
-cd src/Producer && dotnet run
-```
-
-### Yaygın Sorunlar ve Çözümler
-
-**Problem**: RabbitMQ bağlantı hatası
-```bash
-# Çözüm: RabbitMQ'nun başlatıldığını kontrol edin
-docker-compose ps rabbitmq
-```
-
-**Problem**: OpenTelemetry verileri görünmüyor
-```bash
-# Çözüm: OTel Collector'ın çalıştığını kontrol edin
-docker-compose logs otel-collector
-```
-
-## 🧪 Test Senaryoları
-
-### Manuel Test
-1. Docker servislerini başlatın
-2. Consumer'ı çalıştırın
-3. Producer'ı çalıştırın
-4. Jaeger UI'da trace'leri kontrol edin
-5. Grafana'da metrikleri görüntüleyin
-
-### Performans Testi
-```bash
-# Producer'ı birden fazla kez çalıştırarak yük testi yapın
-for i in {1..5}; do cd src/Producer && dotnet run && cd ../..; done
-```
-
-## 🛡️ Güvenlik Notları
-
-- Bu demo amaçlı bir projedir
-- Production'da güçlü parolalar kullanın
-- Network security ayarlarını yapılandırın
-- Authentication/authorization ekleyin
 
 ## 🤝 Katkıda Bulunma
 
-1. Fork edin
-2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Commit edin (`git commit -m 'Add amazing feature'`)
-4. Push edin (`git push origin feature/amazing-feature`)
-5. Pull Request açın
-
-## 📄 Lisans
-
-Bu proje MIT lisansı altındadır.
-
-## 📞 İletişim
-
-Sorularınız için issue açabilir veya pull request gönderebilirsiniz.
+1. Fork → Feature branch → Commit → Push → Pull Request
+2. Issue'lar ve öneriler için GitHub Issues kullanın
 
 ---
 
-**Not**: İlk çalıştırmada Docker image'larının indirilmesi birkaç dakika sürebilir. 
+**Not**: İlk çalıştırmada Docker image'ları indirileceği için birkaç dakika sürebilir.
