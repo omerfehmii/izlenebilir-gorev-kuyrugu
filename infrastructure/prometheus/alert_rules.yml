@@ -1,4 +1,32 @@
 groups:
+- name: ai-model-alerts
+  rules:
+  - alert: AIModerateLatency
+    expr: histogram_quantile(0.95, rate(ai_prediction_latency_seconds_bucket[5m])) > 2
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "AI prediction latency p95 high"
+      description: "AI prediction p95 latency > 2s for 5m"
+
+  - alert: AIModelNotReady
+    expr: sum(ai_model_ready) < 3
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "AI models not ready"
+      description: "One or more AI models are not loaded"
+
+  - alert: FeatureDriftDetected
+    expr: avg_over_time(ai_feature_drift_score[15m]) > 0.7
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Feature drift detected"
+      description: "Feature drift score sustained > 0.7"
 - name: task_queue_alerts
   rules:
   # High error rate alerts

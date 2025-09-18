@@ -170,6 +170,9 @@ namespace AIService.Controllers
             {
                 var isHealthy = await _predictionService.IsHealthyAsync();
                 var statistics = await _predictionService.GetModelStatisticsAsync();
+                AIMetrics.SetModelReady("duration", isHealthy);
+                AIMetrics.SetModelReady("priority", isHealthy);
+                AIMetrics.SetModelReady("success", isHealthy);
                 
                 return Ok(new
                 {

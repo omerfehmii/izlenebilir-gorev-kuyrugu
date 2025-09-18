@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Prometheus;
 using AIService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +11,7 @@ builder.Services.AddControllers();
 
 // Add AI Services
 builder.Services.AddSingleton<HybridAIService>(); // Hybrid AI with synthetic learning (Singleton - once only)
+builder.Services.AddSingleton<ModelManager>(); // Real ML models manager
 builder.Services.AddSingleton<ITaskPredictionService, TaskPredictionService>(); // Singleton - eğitim sadece bir kez
 
 // Add OpenTelemetry
@@ -23,7 +25,8 @@ builder.Services.AddOpenTelemetry()
         .AddHttpClientInstrumentation()
         .AddOtlpExporter(options =>
         {
-            options.Endpoint = new Uri("http://localhost:4317");
+            var otlp = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT") ?? "http://localhost:4317";
+            options.Endpoint = new Uri(otlp);
         }));
 
 // Add Swagger/OpenAPI
@@ -71,6 +74,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseRouting();
+// Prometheus metrics endpoint
+app.UseHttpMetrics();
+app.MapMetrics();
 app.UseCors();
 app.UseAuthorization();
 
@@ -81,7 +88,7 @@ app.MapControllers();
 
 // Add startup logging
 app.Logger.LogInformation("AI Service başlatılıyor...");
-app.Logger.LogInformation("OpenTelemetry endpoint: http://localhost:4317");
+app.Logger.LogInformation("OpenTelemetry endpoint: {Endpoint}", Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT") ?? "http://localhost:4317");
 app.Logger.LogInformation("Swagger UI: {BaseUrl}", app.Environment.IsDevelopment() ? "https://localhost:7001" : "Production URL");
 
 app.Run();

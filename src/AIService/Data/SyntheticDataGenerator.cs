@@ -356,6 +356,7 @@ namespace AIService.Data
         public bool RequiresDatabaseAccess { get; set; }
         public float DataQualityScore { get; set; }
         public float ComplexityScore { get; set; }
+        public string DataFormat { get; set; } = string.Empty;
         
         // Labels (Output) - AI'nin tahmin etmesi gereken değerler
         public float DurationMs { get; set; }
