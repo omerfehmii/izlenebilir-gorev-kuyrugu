@@ -1,93 +1,158 @@
-# İzlenebilir Görev Kuyruğu (Trackable Task Queue)
+# İzlenebilir Görev Kuyruğu (AI Destekli)
 
-AI destekli, öncelik tabanlı görev kuyruğu sistemi. RabbitMQ, .NET 6, ve OpenTelemetry ile tam izlenebilirlik.
+AI destekli, öncelik tabanlı görev kuyruğu sistemi. RabbitMQ + .NET 6 + OpenTelemetry ile uçtan uca izlenebilirlik, Prometheus/Grafana ile metrik takibi, Jaeger ile dağıtık iz sürme.
 
-## 🏗️ Mimari
+## 🔎 Neler Sunar?
+- **AI destekli önceliklendirme**: Görevler için süre, öncelik ve kuyruk tavsiyesi (ML.NET + Hybrid/Fallback)
+- **Akıllı yönlendirme**: Critical/High/Normal/Low/Batch/Anomaly kuyruklarına otomatik yönlendirme
+- **Tam izlenebilirlik**: Producer → RabbitMQ → Consumer hattında trace/metric/log
+- **Hazır dashboard'lar**: Prometheus + Grafana ile anlık görünürlük, Alertmanager ile alarmlar
+- **Web UI**: Görev gönderimi ve otomatik görev senaryolarını tetiklemek için basit arayüz
 
-```
-Producer (8081) → RabbitMQ → Consumer (8082)
-     ↓              ↓            ↓
-    AI Service → OpenTelemetry Collector
-  (5178)           ↓        ↓
-               Jaeger   Prometheus
-                          ↓
-                      Grafana
-```
-
-## ✨ Özellikler
-
-- 🧠 **AI Destekli Önceliklendirme**: Görevler süre ve öncelik tahmini ile otomatik sıralanır
-- 📊 **Tam İzlenebilirlik**: Producer'dan Consumer'a kadar her adım trace edilir
-- 🚀 **Web Arayüzü**: Manuel görev gönderimi ve monitoring dashboard
-- ⚡ **Asenkron İşleme**: RabbitMQ ile queue-based architecture
-- 📈 **Real-time Monitoring**: Grafana dashboard ile canlı metriklər
+---
 
 ## 🚀 Hızlı Başlangıç
 
-### 1. Infrastructure'ı Başlat
+1) Altyapıyı başlatın
 ```bash
 docker-compose up -d
 ```
 
-### 2. Uygulamaları Çalıştır
+2) Servisleri geliştirme modunda çalıştırın (isteğe bağlı)
 ```bash
-# Terminal 1 - Consumer
-cd src/Consumer && dotnet run
-
-# Terminal 2 - Producer  
+# Terminal 1 - Producer (Web UI ve API)
 cd src/Producer && dotnet run
 
-# Terminal 3 - AI Service (opsiyonel)
+# Terminal 2 - Consumer
+cd src/Consumer && dotnet run
+
+# Terminal 3 - AI Service
 cd src/AIService && dotnet run
 ```
+Not: Docker Compose ile çalıştırdığınızda Producer 80’e map’lenir (host:8080), AI Service 80’e map’lenir (host:7043), Consumer 80’e map’lenir (host:8082).
 
-### 3. Web Arayüzünü Kullan
-- **Producer UI**: http://localhost:8081 (görev gönderimi)
-- **Grafana**: http://localhost:3000 (admin/admin123)
-- **Jaeger**: http://localhost:16686 (trace görüntüleme)
+3) Arayüzler ve araçlar
+- Producer Web UI: `http://localhost:8081` (dotnet run) veya `http://localhost:8080` (Docker)
+- Consumer: `http://localhost:8082`
+- AI Service: `http://localhost:5178` (dotnet run) veya `http://localhost:7043` (Docker)
+- RabbitMQ Management: `http://localhost:15672` (admin/admin123)
+- Grafana: `http://localhost:3000` (admin/admin123)
+- Jaeger: `http://localhost:16686`
+- Prometheus: `http://localhost:9090`
 
-## 🎯 Görev Türleri
+---
 
-| Tür | Süre | Açıklama |
-|-----|------|----------|
-| **ReportGeneration** | ~8s | Rapor oluşturma ve PDF dönüştürme |
-| **DataProcessing** | ~5s | Veri doğrulama ve analiz |
-| **EmailNotification** | ~3s | E-posta template ve gönderim |
-| **FileProcessing** | ~6s | Dosya işleme ve dönüştürme |
-| **DatabaseCleanup** | ~42s | Veritabanı temizlik işlemleri |
+## 🧭 Mimarinin Özeti
+```
+Producer (UI+API) → RabbitMQ → Consumer
+      │                 │
+      └─ AI Service ───┘
+             │
+   OpenTelemetry Collector → Jaeger
+             │
+         Prometheus → Grafana
+```
 
-## 🛠️ Teknolojiler
+---
 
-- **.NET 6**: Backend servisleri
-- **RabbitMQ**: Mesaj kuyruğu
-- **AI/ML**: Hybrid prediction model
-- **OpenTelemetry**: Distributed tracing
-- **Jaeger, Prometheus, Grafana**: Monitoring stack
-- **Docker**: Container orchestration
+## 🔌 API ve Web Uçları
 
-## 📊 Monitoring
+- Producer API (`/api/task`):
+  - `GET /api/task/types` → Desteklenen görev türleri
+  - `POST /api/task/send` → Tek görev gönderimi
+  - `GET /api/task/stats` → Basit istatistik
+  - `POST /api/task/send-demo` → Demo görevleri gönder
+- Producer AutoTask API (`/api/autotasks`):
+  - `GET /api/autotasks/status` → Otomatik görev durumu
+  - `POST /api/autotasks/start` body: `{ "intervalSeconds": 10, "scenario": "mixed" }`
+  - `POST /api/autotasks/stop`
+  - `POST /api/autotasks/test-suite` → Test paketi gönder
+- Producer AI API (`/api/ai`):
+  - `GET /api/ai/health` → AI Service sağlık
+  - `POST /api/ai/test-prediction` → Hızlı bağlantı testi
+- AI Service (`/api/prediction` ve `/api/training`):
+  - `POST /api/prediction/predict` | `predict-batch` | `predict-duration` | `predict-priority`
+  - `GET /api/prediction/health` | `statistics` | `version`
+  - `POST /api/training/record` | `POST /api/training/retrain?minRecords=500`
+- Sağlık/Metrik Uçları:
+  - Producer: `/health`, `/metrics`
+  - Consumer: `/health`, `/metrics`, `/stats`
+  - AI Service: `/health`, `/metrics`
 
-### Dashboard'lar
-- **Executive Operations**: Üst düzey KPI'lar
-- **Task Queue Dashboard**: Detaylı kuyruk metrikleri
-- **Simple Dashboard**: Temel göstergeler
+Örnek görev gönderimi:
+```bash
+curl -X POST http://localhost:8081/api/task/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "taskType": "ReportGeneration",
+    "title": "Aylık Satış Raporu",
+    "description": "2025 Aralık",
+    "priority": 5,
+    "parameters": { "Month": "December", "Year": 2024, "Format": "PDF" }
+  }'
+```
 
-### Servis URL'leri
-| Servis | URL | Açıklama |
-|--------|-----|----------|
-| Producer | http://localhost:8081 | Görev gönderimi |
-| Consumer | http://localhost:8082 | Health check |
-| AI Service | http://localhost:5178 | Prediction API |
-| RabbitMQ | http://localhost:15672 | Kuyruk yönetimi (admin/admin123) |
-| Grafana | http://localhost:3000 | Dashboard (admin/admin123) |
-| Jaeger | http://localhost:16686 | Trace görüntüleme |
-| Prometheus | http://localhost:9090 | Metrik sorguları |
+Otomatik görev akışı başlatma:
+```bash
+curl -X POST http://localhost:8081/api/autotasks/start \
+  -H "Content-Type: application/json" \
+  -d '{"intervalSeconds": 10, "scenario": "mixed"}'
+```
+
+---
+
+## 🐇 RabbitMQ Priority Kuyrukları
+
+- Kuyruklar: `critical-priority-queue`, `high-priority-queue`, `normal-priority-queue`, `low-priority-queue`, `batch-queue`, `anomaly-queue`
+- Exchange'ler: `priority-exchange` (topic), `anomaly-exchange` (direct), `dlq-exchange` (direct)
+- Routing key'ler:
+  - critical → `priority.critical`
+  - high → `priority.high`
+  - normal → `priority.normal`
+  - low → `priority.low`
+  - batch → `priority.batch`
+  - anomaly → `anomaly.detected`
+- Öncelik aralıkları (max 255):
+  - critical: 255, high: 200, normal: 100, low: 50, batch: 10, anomaly: 150
+- TTL ve limitler kuyruk tipine göre ayarlı; DLQ: `dlq-queue`
+
+Kurulum betiği (lokalde priority kurulumunu doğrulamak için):
+```bash
+python3 scripts/setup-priority-queues.py
+```
+
+---
+
+## 🧠 AI Optimizasyonu
+
+- Producer, gönderim öncesi AI Service'ten tahmin ister. AI yanıt verirse:
+  - `CalculatedPriority`, `PredictedDurationMs`, `RecommendedQueue` ile yayın yapılır
+- AI yoksa/fail olursa: kural tabanlı fallback ile öncelik/kuyruk seçilir
+- AI Service gerçek ML.NET modellerini `src/AIService/ML/*.zip` konumuna kaydeder (başlangıçta sentetik veriden eğitir, varsa diskten yükler)
+
+---
+
+## 📈 Gözlemlenebilirlik ve Dashboard'lar
+
+- OpenTelemetry Collector: OTLP gRPC `4317`, HTTP `4318`
+- Jaeger UI: `http://localhost:16686` → servis adları: `producer-app`, `consumer-app`, `AIService`
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000` (admin/admin123)
+  - Hazır dashboard'lar: Executive Operations, Task Queue, Simple Task Queue, AI Model Monitoring
+
+---
 
 ## 🔧 Konfigürasyon
 
-Tüm servisler environment-aware config kullanır:
-- **Development**: `appsettings.json`
-- **Production**: `appsettings.Production.json`
+- Ortam dosyaları:
+  - Development (dotnet run): uygulama portları `src/*/appsettings.json` üzerinden
+    - Producer: `Application.Port=8081`, AI BaseUrl: `http://localhost:5178`
+    - Consumer: `Application.Port=8082`
+  - Docker: `docker-compose.yml` servis port eşlemelerini kullanır
+    - Producer: `8080:80`, AI: `7043:80`, Consumer: `8082:80`
+- OTLP endpoint (container içinde): `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317`
+
+---
 
 ## 🐛 Sorun Giderme
 
@@ -96,31 +161,24 @@ Tüm servisler environment-aware config kullanır:
 docker-compose ps
 
 # Logları inceleme
-docker-compose logs -f [servis-adı]
+docker-compose logs -f <servis-adı>
 
 # .NET build/run
-cd src/[Producer|Consumer|AIService]
+cd src/<Producer|Consumer|AIService>
 dotnet build && dotnet run
 ```
 
-## 🤝 Katkıda Bulunma
-
-1. Fork → Feature branch → Commit → Push → Pull Request
-2. Issue'lar ve öneriler için GitHub Issues kullanın
+Sık karşılaşılanlar:
+- AI Service sağlık: `GET http://localhost:7043/api/prediction/health` (Docker) veya `http://localhost:5178` (dotnet run)
+- RabbitMQ bağlantı hatası → Kullanıcı/şifre/port (admin/admin123, 5672) ve container'ın çalıştığını doğrulayın
+- Trace görünmüyor → OTLP endpoint ve Jaeger portlarını doğrulayın
 
 ---
 
-**Not**: İlk çalıştırmada Docker image'ları indirileceği için birkaç dakika sürebilir.
+## 🤝 Katkı
+1. Fork → Branch → Commit → PR
+2. Hata/öneriler için Issues açın
 
-## Gerçek AI (ML.NET) Modu
+---
 
-Bu sürümde AIService gerçek ML.NET modelleri ile tahmin yapabilir.
-
-- Eğitim/Yükleme: Servis açılışında sentetik veriden modelleri eğitir ve `src/AIService/ML/*.zip` dosyalarına kaydeder. Modeller varsa diskten yüklenir.
-- Kullanım: Producer, AI tahminlerini bu modellere göre alır; modeller hazır değilse HybridAI + kural tabanlı fallback devreye girer.
-- Telemetry: OTLP endpoint için container ortamında `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` kullanın.
-
-### Çalıştırma
-
-- Docker Compose ile başlatın. Prometheus/Grafana/Jaeger hazırdır.
-- AIService içindeki ML modelleri otomatik oluşur. Silmek için `src/AIService/ML` klasörünü temizleyin.
+Not: İlk çalıştırmada imajlar indirileceği için birkaç dakika sürebilir.
