@@ -161,7 +161,11 @@ namespace Producer
 
             // Configure to listen on configured port
             var port = appConfig.Port;
-            app.Urls.Add($"http://localhost:{port}");
+            // Use ASPNETCORE_URLS if set, otherwise use configured port
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+            {
+                app.Urls.Add($"http://localhost:{port}");
+            }
 
             var logger = app.Services.GetRequiredService<ILogger<Program>>();
             logger.LogInformation("Producer uygulaması başlatıldı - Port: {Port}", port);

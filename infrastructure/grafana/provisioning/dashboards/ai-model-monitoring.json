@@ -1,0 +1,67 @@
+{
+  "id": null,
+  "uid": "ai-model-monitoring",
+  "title": "AI Model Monitoring",
+  "tags": ["ai", "ml", "monitoring"],
+  "timezone": "browser",
+  "schemaVersion": 27,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Predictions (last 5m)",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "sum(increase(ai_predictions_total[5m]))", "refId": "A"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency p95",
+      "gridPos": {"h": 8, "w": 12, "x": 6, "y": 0},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, rate(ai_prediction_latency_seconds_bucket[5m]))", "refId": "A"}
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Models Ready",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "targets": [
+        {"expr": "sum(ai_model_ready)", "refId": "A"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Model Metrics - R2/Accuracy",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [
+        {"expr": "ai_model_metric{metric=\"r2\"}", "legendFormat": "{{model}} R2", "refId": "A"},
+        {"expr": "ai_model_metric{metric=\"accuracy\"}", "legendFormat": "{{model}} Acc", "refId": "B"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Feature Drift Score",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [
+        {"expr": "ai_feature_drift_score", "legendFormat": "{{feature}}", "refId": "A"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Feature Distributions",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+      "targets": [
+        {"expr": "rate(ai_feature_input_size_bytes_bucket[5m])", "legendFormat": "input_size", "refId": "A"},
+        {"expr": "rate(ai_feature_system_load_bucket[5m])", "legendFormat": "system_load", "refId": "B"},
+        {"expr": "rate(ai_feature_queue_depth_bucket[5m])", "legendFormat": "queue_depth", "refId": "C"}
+      ]
+    }
+  ],
+  "templating": {"list": []}
+}
+
+

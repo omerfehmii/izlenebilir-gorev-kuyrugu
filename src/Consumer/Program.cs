@@ -12,6 +12,7 @@ using Prometheus;
 using Consumer.Services;
 using Consumer.Models;
 using TaskQueue.Shared.Models;
+using System.Threading;
 
 namespace Consumer
 {
@@ -25,6 +26,7 @@ namespace Consumer
         private static readonly Gauge QueueWaitTimeGauge = Metrics.CreateGauge("consumer_queue_wait_time_seconds", "Kuyruktaki bekleme süresi", "queue_name");
         private static readonly Gauge ActiveTasksGauge = Metrics.CreateGauge("consumer_active_tasks", "Aktif işlenen görev sayısı", "task_type");
         private static readonly Counter DeadLetterQueueCounter = Metrics.CreateCounter("consumer_dead_letter_queue_total", "DLQ'ya gönderilen görev sayısı", "task_type", "reason");
+        private static long TasksProcessedTotal = 0;
 
         static async Task Main(string[] args)
         {
@@ -63,6 +65,10 @@ namespace Consumer
             var otelConfig = builder.Configuration.GetSection("OpenTelemetry").Get<OpenTelemetryConfig>() ?? new OpenTelemetryConfig();
             var appConfig = builder.Configuration.GetSection("Application").Get<ApplicationConfig>() ?? new ApplicationConfig();
 
+            // Bind AI service base url for training reporting
+            var aiServiceBaseUrl = Environment.GetEnvironmentVariable("AI_SERVICE_BASE_URL") ?? "http://localhost:7043";
+            Environment.SetEnvironmentVariable("AI_SERVICE_BASE_URL", aiServiceBaseUrl);
+
             // OpenTelemetry Configuration
             builder.Services.AddOpenTelemetry()
                 .WithTracing(tracerProviderBuilder =>
@@ -96,13 +102,17 @@ namespace Consumer
             // Consumer stats endpoint
             app.MapGet("/stats", () => new 
             { 
-                TasksProcessed = TasksProcessedCounter.Value,
+                TasksProcessed = TasksProcessedTotal,
                 Status = "Running",
                 Timestamp = DateTime.UtcNow 
             });
 
             // Configure to listen on configured port
-            app.Urls.Add($"http://localhost:{appConfig.Port}");
+            // Use ASPNETCORE_URLS if set, otherwise use configured port
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+            {
+                app.Urls.Add($"http://localhost:{appConfig.Port}");
+            }
 
             var logger = app.Services.GetRequiredService<ILogger<Program>>();
             logger.LogInformation("Consumer uygulaması başlatıldı - Port: {Port}", appConfig.Port);
@@ -112,7 +122,10 @@ namespace Consumer
 
         // Static methods for metrics (ConsumerWorker tarafından kullanılacak)
         public static void IncrementTasksProcessed(string taskType, string queueName, string status) 
-            => TasksProcessedCounter.WithLabels(taskType, queueName, status).Inc();
+        {
+            TasksProcessedCounter.WithLabels(taskType, queueName, status).Inc();
+            Interlocked.Increment(ref TasksProcessedTotal);
+        }
         
         public static IDisposable StartTaskProcessingTimer(string taskType) 
             => TaskProcessingDuration.WithLabels(taskType).NewTimer();

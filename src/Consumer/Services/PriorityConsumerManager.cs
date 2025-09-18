@@ -26,6 +26,7 @@ namespace Consumer.Services
         private readonly IModel _channel;
         private readonly ConsumerRabbitMQConfig _config;
         private static readonly ActivitySource ActivitySource = new("Consumer.PriorityManager");
+        private readonly HttpClient _httpClient = new();
         
         // Priority-specific consumers
         private readonly Dictionary<string, EventingBasicConsumer> _consumers = new();
@@ -64,6 +65,35 @@ namespace Consumer.Services
             DeclarePriorityInfrastructure();
             
             _logger.LogInformation("Priority Consumer Manager başlatıldı - Priority-based processing hazır");
+        }
+
+        private async Task ReportTrainingDataAsync(TaskMessage task, string queueName, string routingReason)
+        {
+            try
+            {
+                var aiBaseUrl = Environment.GetEnvironmentVariable("AI_SERVICE_BASE_URL") ?? "http://ai-service:80";
+                var url = $"{aiBaseUrl}/api/training/record";
+                var payload = new
+                {
+                    taskId = task.Id,
+                    taskType = task.TaskType,
+                    features = task.AIFeatures ?? new TaskQueue.Shared.Models.TaskFeatures(),
+                    actualDurationMs = task.ProcessingDuration?.TotalMilliseconds ?? 0,
+                    actualPriority = task.GetEffectivePriority(),
+                    wasSuccessful = true,
+                    createdAt = task.CreatedAt,
+                    processedAt = task.CompletedAt ?? DateTime.UtcNow,
+                    queueName = queueName,
+                    routingReason = routingReason
+                };
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(payload);
+                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                await _httpClient.PostAsync(url, content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Training data report failed: {TaskId}", task.Id);
+            }
         }
         
         private void SetupPriorityConcurrency()
@@ -306,6 +336,9 @@ namespace Consumer.Services
                         
                         _logger.LogInformation("✅ Priority task completed: {TaskId} - Queue: {QueueName}, Duration: {Duration}ms",
                             task.Id, queueName, task.ProcessingDuration?.TotalMilliseconds ?? 0);
+
+                        // Report training data back to AIService
+                        _ = ReportTrainingDataAsync(task, queueName, GetHeaderValue(ea.BasicProperties?.Headers, "routing-reason", ""));
                         
                         activity?.SetStatus(ActivityStatusCode.Ok);
                     }

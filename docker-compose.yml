@@ -52,18 +52,20 @@ services:
   # Producer App - AI-Optimized
   producer:
     build:
-      context: ./src/Producer
-      dockerfile: Dockerfile
+      context: ./src
+      dockerfile: Producer/Dockerfile
     container_name: producer
     ports:
       - "8080:80"
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USER=admin
-      - RABBITMQ_PASSWORD=admin123
-      - AI_SERVICE_URL=http://ai-service:80
+      - ASPNETCORE_URLS=http://+:80
+      # .NET config binding (overrides appsettings) - double underscore syntax
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+      - AIService__BaseUrl=http://ai-service:80
     depends_on:
       - rabbitmq
       - ai-service
@@ -97,15 +99,20 @@ services:
   # Consumer App
   consumer:
     build:
-      context: ./src/Consumer
-      dockerfile: Dockerfile
+      context: ./src
+      dockerfile: Consumer/Dockerfile
     container_name: consumer
+    ports:
+      - "8082:80"
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USER=admin
-      - RABBITMQ_PASSWORD=admin123
+      - ASPNETCORE_URLS=http://+:80
+      # .NET config binding (overrides appsettings) - double underscore syntax
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+      - UsePriorityConsumer=true
     depends_on:
       - rabbitmq
       - otel-collector

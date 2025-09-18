@@ -22,6 +22,7 @@ namespace Consumer.Services
         private readonly IModel _channel;
         private readonly ConsumerRabbitMQConfig _config;
         private static readonly ActivitySource ActivitySource = new("Consumer.Worker");
+        private readonly HttpClient _httpClient = new();
 
         public ConsumerWorker(ILogger<ConsumerWorker> logger, TaskProcessor taskProcessor, IOptions<ConsumerRabbitMQConfig> config)
         {
@@ -254,6 +255,7 @@ namespace Consumer.Services
                     _channel.BasicAck(ea.DeliveryTag, false);
                         _logger.LogInformation("Mesaj başarıyla işlendi: {TaskId} - Süre: {Duration}ms", 
                             task.Id, task.ProcessingDuration?.TotalMilliseconds ?? 0);
+                        _ = ReportTrainingDataAsync(task, queueName);
                     activity?.SetStatus(ActivityStatusCode.Ok);
                 }
                 else
@@ -301,6 +303,35 @@ namespace Consumer.Services
                 }
                 
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            }
+        }
+
+        private async Task ReportTrainingDataAsync(TaskMessage task, string queueName)
+        {
+            try
+            {
+                var aiBaseUrl = Environment.GetEnvironmentVariable("AI_SERVICE_BASE_URL") ?? "http://ai-service:80";
+                var url = $"{aiBaseUrl}/api/training/record";
+                var payload = new
+                {
+                    taskId = task.Id,
+                    taskType = task.TaskType,
+                    features = task.AIFeatures ?? new TaskQueue.Shared.Models.TaskFeatures(),
+                    actualDurationMs = task.ProcessingDuration?.TotalMilliseconds ?? 0,
+                    actualPriority = task.GetEffectivePriority(),
+                    wasSuccessful = true,
+                    createdAt = task.CreatedAt,
+                    processedAt = task.CompletedAt ?? DateTime.UtcNow,
+                    queueName = queueName,
+                    routingReason = "consumer_worker"
+                };
+                var json = Newtonsoft.Json.JsonConvert.SerializeObject(payload);
+                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                await _httpClient.PostAsync(url, content);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Training data report failed: {TaskId}", task.Id);
             }
         }
 

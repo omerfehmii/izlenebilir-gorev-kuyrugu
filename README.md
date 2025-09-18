@@ -111,3 +111,16 @@ dotnet build && dotnet run
 ---
 
 **Not**: İlk çalıştırmada Docker image'ları indirileceği için birkaç dakika sürebilir.
+
+## Gerçek AI (ML.NET) Modu
+
+Bu sürümde AIService gerçek ML.NET modelleri ile tahmin yapabilir.
+
+- Eğitim/Yükleme: Servis açılışında sentetik veriden modelleri eğitir ve `src/AIService/ML/*.zip` dosyalarına kaydeder. Modeller varsa diskten yüklenir.
+- Kullanım: Producer, AI tahminlerini bu modellere göre alır; modeller hazır değilse HybridAI + kural tabanlı fallback devreye girer.
+- Telemetry: OTLP endpoint için container ortamında `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317` kullanın.
+
+### Çalıştırma
+
+- Docker Compose ile başlatın. Prometheus/Grafana/Jaeger hazırdır.
+- AIService içindeki ML modelleri otomatik oluşur. Silmek için `src/AIService/ML` klasörünü temizleyin.
