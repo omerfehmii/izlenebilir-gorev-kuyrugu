@@ -1,4 +1,4 @@
-# İzlenebilir Görev Kuyruğu (AI Destekli)
+# İzlenebilir Görev Kuyruğu
 
 AI destekli, öncelik tabanlı görev kuyruğu sistemi. RabbitMQ + .NET 6 + OpenTelemetry ile uçtan uca izlenebilirlik, Prometheus/Grafana ile metrik takibi, Jaeger ile dağıtık iz sürme.
 
