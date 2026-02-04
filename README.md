@@ -2,7 +2,7 @@
 
 AI destekli, öncelik tabanlı görev kuyruğu sistemi. RabbitMQ + .NET 6 + OpenTelemetry ile uçtan uca izlenebilirlik, Prometheus/Grafana ile metrik takibi, Jaeger ile dağıtık iz sürme.
 
-## 🔎 Neler Sunar?
+## Neler Sunar?
 - **AI destekli önceliklendirme**: Görevler için süre, öncelik ve kuyruk tavsiyesi (ML.NET + Hybrid/Fallback)
 - **Akıllı yönlendirme**: Critical/High/Normal/Low/Batch/Anomaly kuyruklarına otomatik yönlendirme
 - **Tam izlenebilirlik**: Producer → RabbitMQ → Consumer hattında trace/metric/log
@@ -11,7 +11,7 @@ AI destekli, öncelik tabanlı görev kuyruğu sistemi. RabbitMQ + .NET 6 + Open
 
 ---
 
-## 🚀 Hızlı Başlangıç
+## Hızlı Başlangıç
 
 1) Altyapıyı başlatın
 ```bash
@@ -42,7 +42,7 @@ Not: Docker Compose ile çalıştırdığınızda Producer 80’e map’lenir (h
 
 ---
 
-## 🧭 Mimarinin Özeti
+## Mimarinin Özeti
 ```
 Producer (UI+API) → RabbitMQ → Consumer
       │                 │
@@ -55,7 +55,7 @@ Producer (UI+API) → RabbitMQ → Consumer
 
 ---
 
-## 🔌 API ve Web Uçları
+## API ve Web Uçları
 
 - Producer API (`/api/task`):
   - `GET /api/task/types` → Desteklenen görev türleri
@@ -123,7 +123,7 @@ python3 scripts/setup-priority-queues.py
 
 ---
 
-## 🧠 AI Optimizasyonu
+## AI Optimizasyonu
 
 - Producer, gönderim öncesi AI Service'ten tahmin ister. AI yanıt verirse:
   - `CalculatedPriority`, `PredictedDurationMs`, `RecommendedQueue` ile yayın yapılır
@@ -132,7 +132,7 @@ python3 scripts/setup-priority-queues.py
 
 ---
 
-## 📈 Gözlemlenebilirlik ve Dashboard'lar
+## Gözlemlenebilirlik ve Dashboard'lar
 
 - OpenTelemetry Collector: OTLP gRPC `4317`, HTTP `4318`
 - Jaeger UI: `http://localhost:16686` → servis adları: `producer-app`, `consumer-app`, `AIService`
@@ -142,7 +142,7 @@ python3 scripts/setup-priority-queues.py
 
 ---
 
-## 🔧 Konfigürasyon
+## Konfigürasyon
 
 - Ortam dosyaları:
   - Development (dotnet run): uygulama portları `src/*/appsettings.json` üzerinden
@@ -154,7 +154,7 @@ python3 scripts/setup-priority-queues.py
 
 ---
 
-## 🐛 Sorun Giderme
+## Sorun Giderme
 
 ```bash
 # Servis durumları
@@ -175,7 +175,7 @@ Sık karşılaşılanlar:
 
 ---
 
-## 🤝 Katkı
+## Katkı
 1. Fork → Branch → Commit → PR
 2. Hata/öneriler için Issues açın
 
